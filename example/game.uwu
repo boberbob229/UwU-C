@@ -1,9 +1,9 @@
 nuzzle main() -> chonk {
-    print_str("this took so damn long to fix holy hell....");
-    print_str("");
-    print_str("I'm thinking of a number 1-10");
-    print_str("You have 5 chances to guess it");
-    print_str("");
+    uwu_print("this took so damn long to fix holy hell....\n");
+    uwu_print("\n");
+    uwu_print("I'm thinking of a number 1-10\n");
+    uwu_print("You have 5 chances to guess it\n");
+    uwu_print("\n");
 
     secret: chonk = 7;
     attempts: chonk = 0;
@@ -13,30 +13,30 @@ nuzzle main() -> chonk {
     wepeat (attempts < 5) {
         attempts = attempts + 1;
 
-        print_str("Guess: ");
+        uwu_print("Guess: ");
         guess = read_int();
 
         pwease (guess == secret) {
-            print_str("");
-            print_str("*** CORRECT! ***");
-            print_str("You win!");
-            print_str("");
+            uwu_print("\n");
+            uwu_print("*** CORRECT! ***\n");
+            uwu_print("You win!\n");
+            uwu_print("\n");
             won = 1;
             attempts = 5;
         } nowu {
             pwease (guess < secret) {
-                print_str("-> Too low");
+                uwu_print("-> Too low\n");
             } nowu {
-                print_str("-> Too high");
+                uwu_print("-> Too high\n");
             }
-            print_str("");
+            uwu_print("\n");
         }
     }
 
     pwease (won == 0) {
-        print_str("GAME OVER");
-        print_str("The number was 7");
-        print_str("Better luck next time!");
+        uwu_print("GAME OVER\n");
+        uwu_print("The number was 7\n");
+        uwu_print("Better luck next time!\n");
     }
 
     gimme 0;
