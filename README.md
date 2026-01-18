@@ -1,1 +1,51 @@
-this will be changed uh if you want to support me just add some code and stuff if you leak code from here i dont really care no make yet cuz i haven't figured out x86 support super well... (its there ig...) be aware some of the language might not be the best send some funny ss's of the code cuz it's pretty bad sometimes don't replace parser cuz the "new" version is honestly worse!
+# UwU-C 
+
+UwU-C is a small programming language and compiler I'm building as a learning project. 
+
+The goal is to explore how compilers actually work—from parsing and IR to handwritten assembly—while experimenting with safer memory ideas and a cute syntax. 
+
+> [!WARNING]
+> **This is not a production language.** It's a playground for learning low-level internals.
+
+## Why UwU-C? 
+
+I wanted to stop treating compilers like a black box. UwU-C exists to help me learn:
+
+*   **Compiler internals** — The journey from source to binary.
+*   **Stack layout & calling conventions** — Managing memory at the metal.
+*   **x86_64 & ARM64 assembly** — Writing instructions by hand.
+*   **ABI rules** — And the fun of seeing why breaking them causes crashes.
+
+Instead of using LLVM, UwU-C generates assembly directly. This makes the behavior much easier to understand, debug, and trace.
+
+## Features 
+
+*   **Custom IR** — My own intermediate representation.
+*   **Handwritten codegen** — Raw assembly output for full control.
+*   **Experimental memory safety** — Testing out some safer memory ideas.
+*   **Cute syntax** — Making low-level dev a bit more cute.
+*   **Work in progress** — Always evolving.
+
+## Project Status 
+
+**Early and experimental.**  
+Things will break. That’s part of the point.
+
+## Supported Platforms 
+
+| Architecture | OS |
+| :--- | :--- |
+| **x86_64** | Linux, macOS |
+| **ARM64** | Linux, macOS |
+
+## Repo Layout 
+
+*   `src/` — compiler source
+*   `include/` — headers
+*   `stdlib/` — experimental standard library
+*   `example/` — example programs
+*   `docs/` — notes and explanations
+
+## License 
+
+**WTFPL** — do whatever you want.
