@@ -1,0 +1,93 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "UwU-C",
+  "scopeName": "source.uwuc",
+  "fileTypes": ["uwu"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#functions" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.uwuc",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.uwuc",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.uwuc",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.uwuc",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.uwuc",
+          "match": "\\b\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.float.uwuc",
+          "match": "\\b\\d+\\.\\d+\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.uwuc",
+          "match": "\\b(nuzzle|gimme|pwease|nowu|wepeat|fow|bweak|continyue|unsafe)\\b"
+        },
+        {
+          "name": "keyword.other.uwuc",
+          "match": "\\b(const|static|extern|typedef|sizeof)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.uwuc",
+          "match": "\\b(chonk|megachonk|smol|byte|floof|bigfloof|boop|void)\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.uwuc",
+          "match": "\\b(uwu_print)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.uwuc",
+          "match": "(->|==|!=|<=|>=|\\+|\\-|\\*|/|=|<|>)"
+        }
+      ]
+    }
+  }
+}
