@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
-/* Yah, it do not matter */
+
 typedef enum {
     AST_PROGRAM,
     AST_FUNCTION,
@@ -48,7 +48,7 @@ typedef enum {
     AST_ARRAY_TYPE
 } ASTNodeKind;
 
-/* Turned to a savage, pocket got fatter, she call me daddy */
+
 typedef enum {
     TYPE_VOID,
     TYPE_CHONK,
@@ -65,7 +65,7 @@ typedef enum {
     TYPE_FUNCTION
 } TypeKind;
 
-/* Turned to a savage, pocket got fatter, she call me daddy */
+
 typedef struct Type {
     TypeKind kind;
     struct Type* base;
@@ -74,7 +74,7 @@ typedef struct Type {
     int align;
 } Type;
 
-/* My haters got sadder */
+
 typedef struct ASTNode {
     ASTNodeKind kind;
 
@@ -104,16 +104,16 @@ typedef struct ASTNode {
     } data;
 } ASTNode;
 
-/* Yeah, Chris Brown said these hoes ain't loyal */
+
 ASTNode* ast_node_new(ASTNodeKind kind);
 void ast_node_free(ASTNode* node);
 void ast_node_add_child(ASTNode* parent, ASTNode* child);
 void ast_dump(ASTNode* node, FILE* out);
 
-/* None of these hoes got no morals */
+
 Type* type_new(TypeKind kind);
 Type* type_pointer(Type* base);
 Type* type_array(Type* base, int size);
 void type_free(Type* type);
 
-#endif /* Yah, it do not matter */
+#endif

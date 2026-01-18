@@ -19,4 +19,4 @@ void error(const char* fmt, ...);
 void error_at(int line, int col, const char* fmt, ...);
 void warn_at(int line, int col, const char* fmt, ...);
 
-#endif // UTIL_H
+#endif
