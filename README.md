@@ -9,7 +9,7 @@ The goal is to explore how compilers actually work—from parsing and IR to hand
 
 ## Join the Community 💬
 
-Got questions, want to follow the progress, or just want to hang out with other low-level enthusiasts? Join the Discord:
+Got questions, want to follow the progress, or just want to hang out? Join the Discord:
 
 **[Join the UwU-C Discord](https://discord.gg/brUugmXhux)**
 
