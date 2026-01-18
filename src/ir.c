@@ -16,6 +16,9 @@
  *  - Emitting IR instructions for expressions and statements
  *  - Managing temporary values and labels
  *  - Computing function stack frame sizes
+ *  - Should work fine?
+ *  - sigma sigma code.....
+ *  - need thigh highs cuz this coding is getting too hard...
  */
 
 #include "ir.h"

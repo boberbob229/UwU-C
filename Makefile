@@ -1,5 +1,4 @@
-# ez so SHUT UP NOWWWWWWWW 
-# im kidding lol....
+# Build UwUC
 
 CC ?= clang
 CFLAGS = -Wall -Wextra -std=c11 -Iinclude -Isrc
@@ -55,7 +54,7 @@ TESTS_DIR    = tests
 EXAMPLES_DIR = examples
 
 
-SRCS := $(wildcard src/*.c)
+SRCS := $(filter-out src/parser_legacy.c , $(wildcard src/*.c))
 OBJS := $(SRCS:src/%.c=$(OBJ_DIR)/%.o)
 
 TARGET = $(BIN_DIR)/uwucc

@@ -26,7 +26,7 @@ static void print_usage(const char* program) {
 }
 
 static void print_version(void) {
-    printf("uwucc 0.1.0\n");
+    printf("uwucc 1.0\n");
     printf("Platform: %s (%s)\n", UWUCC_PLATFORM_NAME, UWUCC_ARCH_NAME);
 }
 
