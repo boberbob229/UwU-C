@@ -98,22 +98,14 @@ static void emit_x86_64_prologue(FILE* f, const char* func_name, int frame_size)
     fprintf(f, ".type %s, @function\n", func_name);
     fprintf(f, "%s:\n", func_name);
 
-    fprintf(f, "    pushq %%rbp\n");
+    // On entry: rsp % 16 == 8 (return address pushed by call) Thanks micl!
+    fprintf(f, "    pushq %%rbp\n");        // rsp % 16 == 0
     fprintf(f, "    movq %%rsp, %%rbp\n");
+    fprintf(f, "    pushq %%rbx\n");        // rsp % 16 == 8
+    fprintf(f, "    pushq %%r12\n");        // rsp % 16 == 0
 
-    fprintf(f, "    pushq %%rbx\n");
-    fprintf(f, "    pushq %%r12\n");
 
-    // After pushq rbp (8) + pushq rbx (8) + pushq r12 (8) = 24 bytes pushed
-    // We need (24 + frame_size) % 16 == 0 for alignment
-    // So we need frame_size % 16 == 8 (since 24 % 16 == 8)
-    int aligned_frame = frame_size;
-    if ((aligned_frame % 16) != 8) {
-        aligned_frame = align_to(aligned_frame, 16);
-        if ((aligned_frame % 16) != 8) {
-            aligned_frame += 8;
-        }
-    }
+    int aligned_frame = align_to(frame_size, 16);
 
     if (aligned_frame > 0) {
         fprintf(f, "    subq $%d, %%rsp\n", aligned_frame);
@@ -379,6 +371,11 @@ static void emit_x86_64_instruction(FILE* f, IRInstruction* inst, int frame_size
         }
         emit_x86_64_epilogue(f);
     }
+    else if (strcmp(inst->opcode, "endfunc") == 0) {
+        // Implicit return for functions without explicit return
+        fprintf(f, "    xorq %%rax, %%rax\n");  // Return 0 by default
+        emit_x86_64_epilogue(f);
+    }
     else if (strcmp(inst->opcode, "func") == 0) {
         emit_x86_64_prologue(f, inst->operands[0], frame_size);
     }
@@ -510,6 +507,11 @@ static void emit_arm64_instruction(FILE* f, IRInstruction* inst, int frame_size)
         if (inst->operands[0]) {
             emit_arm64_load(f, inst->operands[0], frame_size);
         }
+        emit_arm64_epilogue(f, frame_size);
+    }
+    else if (strcmp(inst->opcode, "endfunc") == 0) {
+        // Implicit return for functions without explicit return
+        fprintf(f, "    mov x0, #0\n");  // Return 0 by default
         emit_arm64_epilogue(f, frame_size);
     }
     else if (strcmp(inst->opcode, "func") == 0) {
