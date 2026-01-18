@@ -1,0 +1,148 @@
+# Configuration for build modes
+config_setting(
+    name = "debug",
+    values = {"compilation_mode": "dbg"},
+)
+
+config_setting(
+    name = "release",
+    values = {"compilation_mode": "opt"},
+)
+
+# Platform detection
+config_setting(
+    name = "macos",
+    constraint_values = ["@platforms//os:macos"],
+)
+
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+config_setting(
+    name = "macos_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+config_setting(
+    name = "macos_x86_64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "linux_arm64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+# Common flags
+COMMON_COPTS = [
+    "-Wall",
+    "-Wextra",
+    "-std=c11",
+]
+
+PLATFORM_COPTS = select({
+    ":macos": ["-DUWUCC_PLATFORM_MACOS"],
+    ":linux": ["-DUWUCC_PLATFORM_LINUX"],
+    "//conditions:default": [],
+})
+
+ARCH_COPTS = select({
+    ":macos_arm64": ["-DUWUCC_ARCH_ARM64"],
+    ":macos_x86_64": ["-DUWUCC_ARCH_X86_64"],
+    ":linux_arm64": ["-DUWUCC_ARCH_ARM64"],
+    ":linux_x86_64": ["-DUWUCC_ARCH_X86_64"],
+    "//conditions:default": [],
+})
+
+DEBUG_COPTS = [
+    "-g",
+    "-O0",
+    "-DDEBUG",
+    "-fsanitize=address",
+]
+
+RELEASE_COPTS = [
+    "-O2",
+    "-DNDEBUG",
+    "-march=native",
+]
+
+BUILD_MODE_COPTS = select({
+    ":debug": DEBUG_COPTS,
+    ":release": RELEASE_COPTS,
+    "//conditions:default": RELEASE_COPTS,
+})
+
+LINKOPTS = select({
+    ":linux": ["-no-pie"],
+    "//conditions:default": [],
+}) + select({
+    ":debug": ["-fsanitize=address"],
+    "//conditions:default": [],
+})
+
+# Main compiler binary
+cc_binary(
+    name = "uwucc",
+    srcs = [
+        "include/platform.h",
+        "include/token.h",
+        "src/ast.c",
+        "src/ast.h",
+        "src/codegen.c",
+        "src/codegen.h",
+        "src/ir.c",
+        "src/ir.h",
+        "src/lexer.c",
+        "src/lexer.h",
+        "src/main.c",
+        "src/parser.h",
+        "src/parser_new.c",
+        "src/semantic.c",
+        "src/semantic.h",
+        "src/util.c",
+        "src/util.h",
+    ],
+    copts = COMMON_COPTS + PLATFORM_COPTS + ARCH_COPTS + BUILD_MODE_COPTS,
+    includes = [
+        "include",
+        "src",
+    ],
+    linkopts = LINKOPTS,
+    visibility = ["//visibility:public"],
+)
+
+# Example files
+filegroup(
+    name = "example_sources",
+    srcs = glob(["example/*.uwu"]),
+)
+
+# Macro to compile .uwu files
+[genrule(
+    name = "compile_" + src.replace("example/", "").replace(".uwu", ""),
+    srcs = [src],
+    outs = [src.replace("example/", "").replace(".uwu", "")],
+    cmd = "$(location :uwucc) $(SRCS) -o $@",
+    executable = True,
+    tools = [":uwucc"],
+) for src in glob(["example/*.uwu"])]

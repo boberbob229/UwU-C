@@ -1,0 +1,43 @@
+# Common flags
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
+
+# Debug configuration
+build:debug --compilation_mode=dbg
+build:debug --strip=never
+
+# Release configuration
+build:release --compilation_mode=opt
+build:release --strip=always
+
+# Test configuration with coverage
+build:coverage --compilation_mode=dbg
+build:coverage --instrumentation_filter="//src/..."
+build:coverage --combined_report=lcov
+build:coverage --copt=-g
+build:coverage --copt=-O0
+build:coverage --copt=--coverage
+build:coverage --linkopt=--coverage
+
+# Default to release mode
+build --compilation_mode=opt
+
+# Use clang by default (can be overridden)
+build --repo_env=CC=clang
+
+# Platform-specific settings
+build:macos --copt=-DUWUCC_PLATFORM_MACOS
+build:linux --copt=-DUWUCC_PLATFORM_LINUX
+build:linux --linkopt=-no-pie
+
+# Architecture-specific settings
+build:arm64 --copt=-DUWUCC_ARCH_ARM64
+build:x86_64 --copt=-DUWUCC_ARCH_X86_64
+
+# Output settings
+build --symlink_prefix=bazel-
+build --color=yes
+
+# Test output
+test --test_output=errors
+test --test_summary=detailed
