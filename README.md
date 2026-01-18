@@ -37,7 +37,7 @@ Instead of using LLVM, UwU-C generates assembly directly. This makes the behavio
 **Early and experimental.**  
 Things will break. That’s part of the point.
 
-## Supported Platforms 💻
+## Supported Platforms 
 
 | Architecture | OS |
 | :--- | :--- |

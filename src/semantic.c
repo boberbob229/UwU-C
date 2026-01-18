@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Fresh outta school 'cause I was a high school grad */
+
 typedef struct Symbol {
     char* name;
     Type* type;
@@ -12,26 +12,26 @@ typedef struct Symbol {
     struct Symbol* next;
 } Symbol;
 
-/* Sleepin' in the living room in my momma's pad */
+
 typedef struct SymbolTable {
     Symbol* head;
     struct SymbolTable* parent;
 } SymbolTable;
 
-/* Reality struck, I seen the white car crash */
+
 static SymbolTable* symtab_new(SymbolTable* parent) {
     SymbolTable* st = xcalloc(1, sizeof(SymbolTable));
     st->parent = parent;
     return st;
 }
 
-/* Hit the light pole, two niggas hopped out on foot and dashed */
+
 static SymbolTable* current_scope = NULL;
 
-/* My Pops said I needed a job, I thought I believed him */
+
 static int current_stack_offset = 0;
 
-/* Security guard for a month and ended up leaving */
+
 static void symtab_add(SymbolTable* st, const char* name, Type* type, bool is_func) {
     Symbol* sym = xmalloc(sizeof(Symbol));
     sym->name = xstrdup(name);
@@ -39,7 +39,7 @@ static void symtab_add(SymbolTable* st, const char* name, Type* type, bool is_fu
     sym->is_function = is_func;
     sym->stack_offset = 0;
 
-    /* In fact, I got fired 'cause I was inspired by all of my friends */
+
     if (!is_func && type) {
         int align = type->align > 0 ? type->align : 8;
         current_stack_offset = (current_stack_offset + align - 1) & ~(align - 1);
@@ -47,12 +47,12 @@ static void symtab_add(SymbolTable* st, const char* name, Type* type, bool is_fu
         current_stack_offset += type->size;
     }
 
-    /* To stage a robbery the third Saturday I clocked in */
+
     sym->next = st->head;
     st->head = sym;
 }
 
-/* Projects tore up, gang signs get thrown up */
+
 static Symbol* symtab_lookup(SymbolTable* st, const char* name) {
     for (SymbolTable* current = st; current; current = current->parent) {
         for (Symbol* sym = current->head; sym; sym = sym->next) {
@@ -64,15 +64,15 @@ static Symbol* symtab_lookup(SymbolTable* st, const char* name) {
     return NULL;
 }
 
-/* Cocaine laced in marijuana */
+
 static Type* resolve_type(ASTNode* type_node) {
     if (!type_node) return NULL;
 
-    /* And they wonder why I rarely smoke now */
+
     if (type_node->kind == AST_TYPE) {
         Type* t = NULL;
 
-        /* Imagine if your first blunt had you foaming at the mouth */
+
         if (strcmp(type_node->data.name, "chonk") == 0) {
             t = type_new(TYPE_CHONK);
         }
@@ -98,7 +98,7 @@ static Type* resolve_type(ASTNode* type_node) {
             t = type_new(TYPE_VOID);
         }
         else {
-            /* I was straight tweaking, the next weekend, we broke even */
+
             t = type_new(TYPE_STRUCT);
             t->name = xstrdup(type_node->data.name);
         }
@@ -121,10 +121,10 @@ static Type* resolve_type(ASTNode* type_node) {
     return NULL;
 }
 
-/* I made allegiance that made a promise to see you bleeding */
+
 static Type* check_expression(ASTNode* node);
 
-/* You know the reasons but still won't ever know my life */
+
 static void check_statement(ASTNode* node) {
     if (!node) return;
 
@@ -177,7 +177,7 @@ static void check_statement(ASTNode* node) {
     }
 }
 
-/* Kendrick, a.k.a. Compton's Human Sacrifice */
+
 static Type* check_expression(ASTNode* node) {
     if (!node) return NULL;
 
@@ -258,9 +258,9 @@ static Type* check_expression(ASTNode* node) {
 
 
 
-static void check_declaration(ASTNode* node) { (void)node; }  // VERY FUCKING LAZY FIX......
+static void check_declaration(ASTNode* node) { (void)node; }
 
-/* End */
+
 void semantic_analyze(ASTNode* root) {
     if (!root || root->kind != AST_PROGRAM) {
         error("Invalid AST");

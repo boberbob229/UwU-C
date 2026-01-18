@@ -1,5 +1,5 @@
 /**
- * @file parser.c
+ * @file parser_legacy.c
  * @brief Recursive descent parser for uwuc language
  * @author bober
  * @version 0.0.1
