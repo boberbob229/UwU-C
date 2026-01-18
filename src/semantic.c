@@ -1,3 +1,18 @@
+/**
+ * @file semantic.c
+ * @brief Semantic analysis for the UwU-C language
+ * @author bober
+ * @version 1.0.0
+ *
+ * This file implements the semantic analysis phase of the UwU-C compiler.
+ * It walks the Abstract Syntax Tree (AST) produced by the parser and performs
+ * scope resolution, type checking, and validation of language rules.
+ *
+ * The semantic analyzer ensures that identifiers are declared before use,
+ * expressions are type-correct, and constructs are valid before lowering
+ * to the Intermediate Representation (IR).
+ */
+
 #include "semantic.h"
 #include "util.h"
 #include <stdlib.h>

@@ -1,3 +1,18 @@
+/**
+ * @file lexer.c
+ * @brief Lexical analysis (tokenization) for the UwU-C language
+ * @author Bober
+ * @version 1.0.0
+ *
+ * This file implements the lexer for the UwU-C language.
+ * The lexer reads raw source text and converts it into a stream of tokens
+ * consumed by the parser.
+ *
+ * Responsibilities include recognizing keywords, identifiers, literals,
+ * operators, and punctuation, as well as handling whitespace, comments,
+ * and basic error reporting for invalid tokens.
+ */
+
 #include "lexer.h"
 #include "util.h"
 #include <ctype.h>

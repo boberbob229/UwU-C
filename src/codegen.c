@@ -1,15 +1,13 @@
 /*
 * @file    codegen_v2.c
-* @brief   Assembly code generation for the uwuc IR
-* @author  bober
+* @brief   Assembly code generation for the UwU-C IR
+* @author  Bober
 * @version 1.0.0
 
-* We aren't fucking around anymore.
+* We aren't playing around anymore.
 * No more bullshit and ignoring the problems with ABI Handling.
-* The AMD64 support is held together with duck tape
-* ARM and X86 has been smoothed out..
-* Fucks a little bit with the compiler but not major....
-* Need some thigh highs and monster this is getting too hard.....
+* The AMD64 support is held together with duck tape.
+* ARM and X86 has been smoothed out.
 */
 
 #define _POSIX_C_SOURCE 200809L

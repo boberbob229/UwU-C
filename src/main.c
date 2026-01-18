@@ -1,5 +1,5 @@
 /**
- * uwucc compiler entry point
+ * UwUCC compiler entry point
  */
 
 #include <stdio.h>

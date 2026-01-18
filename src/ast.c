@@ -1,3 +1,19 @@
+/**
+ * @file ast.c
+ * @brief Abstract Syntax Tree (AST) structures and utilities for the UwU-C language
+ * @author Bober
+ * @version 1.0.0
+ *
+ * This file defines the core data structures used to represent the Abstract
+ * Syntax Tree (AST) of the UwU-C language.
+ *
+ * It provides helpers for creating, linking, and freeing AST nodes, as well
+ * as shared logic used by the parser, semantic analysis, and IR generation.
+ *
+ * The AST represents the hierarchical structure of the source program after
+ * parsing and serves as the backbone for all later compilation stages.
+ */
+
 #include "ast.h"
 #include "util.h"
 #include <stdlib.h>
@@ -16,7 +32,7 @@ ASTNode* ast_node_new(ASTNodeKind kind) {
     return node;
 }
 
-// izi lazy fix
+// The AST Dump function is somewhat fixed here... (will visit soon)
 void ast_dump(ASTNode* node, FILE* out) {
     (void)node;
     (void)out;

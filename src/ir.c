@@ -1,8 +1,8 @@
 /**
  * @file ir.c
- * @brief Intermediate Representation (IR) generation for the uwuc compiler
- * @author bober
- * @version 0.0.5
+ * @brief Intermediate Representation (IR) generation for the UwU-C compiler
+ * @author Bober
+ * @version 1.0.0
  *
  * This file implements the lowering phase from the Abstract Syntax Tree (AST)
  * into a linear, three-address-code-style Intermediate Representation (IR).
@@ -16,9 +16,6 @@
  *  - Emitting IR instructions for expressions and statements
  *  - Managing temporary values and labels
  *  - Computing function stack frame sizes
- *  - Should work fine?
- *  - sigma sigma code.....
- *  - need thigh highs cuz this coding is getting too hard...
  */
 
 #include "ir.h"

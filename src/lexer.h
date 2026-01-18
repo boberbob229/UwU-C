@@ -59,4 +59,4 @@ void lexer_free(Lexer* lexer);
 Token lexer_next_token(Lexer* lexer);
 const char* token_kind_to_string(TokenKind kind);
 
-#endif // LEXER_H
+#endif

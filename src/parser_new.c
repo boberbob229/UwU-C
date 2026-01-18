@@ -1,8 +1,8 @@
 /**
  * @file parser_new.c
  * @brief Recursive descent parser for uwuc language
- * @author bober
- * @version 0.0.5
+ * @author Bober
+ * @version 1.0.0
  *
  * This file implements a complete recursive descent parser for the uwuc language.
  * The parser consumes tokens from the lexer and builds an Abstract Syntax Tree
