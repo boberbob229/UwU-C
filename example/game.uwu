@@ -1,0 +1,43 @@
+nuzzle main() -> chonk {
+    print_str("this took so damn long to fix holy hell....");
+    print_str("");
+    print_str("I'm thinking of a number 1-10");
+    print_str("You have 5 chances to guess it");
+    print_str("");
+
+    secret: chonk = 7;
+    attempts: chonk = 0;
+    won: chonk = 0;
+    guess: chonk = 0;
+
+    wepeat (attempts < 5) {
+        attempts = attempts + 1;
+
+        print_str("Guess: ");
+        guess = read_int();
+
+        pwease (guess == secret) {
+            print_str("");
+            print_str("*** CORRECT! ***");
+            print_str("You win!");
+            print_str("");
+            won = 1;
+            attempts = 5;
+        } nowu {
+            pwease (guess < secret) {
+                print_str("-> Too low");
+            } nowu {
+                print_str("-> Too high");
+            }
+            print_str("");
+        }
+    }
+
+    pwease (won == 0) {
+        print_str("GAME OVER");
+        print_str("The number was 7");
+        print_str("Better luck next time!");
+    }
+
+    gimme 0;
+}

@@ -49,32 +49,36 @@ SRC_DIR   = src
 BUILD_DIR = build
 OBJ_DIR   = $(BUILD_DIR)/obj
 BIN_DIR   = $(BUILD_DIR)/bin
+STDLIB_DIR = stdlib
 
 TESTS_DIR    = tests
 EXAMPLES_DIR = examples
-
 
 SRCS := $(filter-out src/parser_legacy.c , $(wildcard src/*.c))
 OBJS := $(SRCS:src/%.c=$(OBJ_DIR)/%.o)
 
 TARGET = $(BIN_DIR)/uwucc
+STDLIB = $(STDLIB_DIR)/uwu_stdlib.o
 
 all: CFLAGS += $(RELEASE_FLAGS)
-all: $(TARGET)
+all: $(TARGET) $(STDLIB)
 	@echo "built for $(PLATFORM_NAME) ($(ARCH_NAME))"
 
 debug: CFLAGS += $(DEBUG_FLAGS)
-debug: $(TARGET)
+debug: $(TARGET) $(STDLIB)
 
 release: CFLAGS += $(RELEASE_FLAGS) -march=native
-release: $(TARGET)
+release: $(TARGET) $(STDLIB)
 
 test-build: CFLAGS += $(TEST_FLAGS)
 test-build: LDFLAGS += --coverage
-test-build: $(TARGET)
+test-build: $(TARGET) $(STDLIB)
 
 $(TARGET): $(OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+
+$(STDLIB): $(STDLIB_DIR)/uwu_stdlib.c
+	$(CC) -c -O2 $(STDLIB_DIR)/uwu_stdlib.c -o $(STDLIB)
 
 $(OBJ_DIR)/%.o: src/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
@@ -89,33 +93,37 @@ $(BIN_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -f $(STDLIB)
 	rm -f *.gcov *.gcda *.gcno
 
 distclean: clean
 	rm -f *.o *.d
 
-test: $(TARGET)
+test: $(TARGET) $(STDLIB)
 	@if [ -d "$(TESTS_DIR)" ]; then \
-		for t in $(TESTS_DIR)/*.uwu; do \
-			[ -f "$$t" ] || continue; \
-			./$(TARGET) "$$t" -o "$(BUILD_DIR)/test_$$(basename $$t .uwu)" || exit 1; \
-		done; \
+	   for t in $(TESTS_DIR)/*.uwu; do \
+	      [ -f "$$t" ] || continue; \
+	      ./$(TARGET) "$$t" -o "$(BUILD_DIR)/test_$$(basename $$t .uwu)" || exit 1; \
+	   done; \
 	fi
 
-examples: $(TARGET)
+examples: $(TARGET) $(STDLIB)
 	@if [ -d "$(EXAMPLES_DIR)" ]; then \
-		for e in $(EXAMPLES_DIR)/*.uwu; do \
-			[ -f "$$e" ] || continue; \
-			./$(TARGET) "$$e" -o "$(BUILD_DIR)/example_$$(basename $$e .uwu)" || exit 1; \
-		done; \
+	   for e in $(EXAMPLES_DIR)/*.uwu; do \
+	      [ -f "$$e" ] || continue; \
+	      ./$(TARGET) "$$e" -o "$(BUILD_DIR)/example_$$(basename $$e .uwu)" || exit 1; \
+	   done; \
 	fi
 
-install: $(TARGET)
+install: $(TARGET) $(STDLIB)
 	install -d $(DESTDIR)/usr/local/bin
 	install -m 755 $(TARGET) $(DESTDIR)/usr/local/bin/uwucc
+	install -d $(DESTDIR)/usr/local/lib/uwucc
+	install -m 644 $(STDLIB) $(DESTDIR)/usr/local/lib/uwucc/uwu_stdlib.o
 
 uninstall:
 	rm -f /usr/local/bin/uwucc
+	rm -rf /usr/local/lib/uwucc
 
 info:
 	@echo "platform: $(PLATFORM_NAME)"

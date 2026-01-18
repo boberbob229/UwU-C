@@ -72,6 +72,7 @@ typedef struct Type {
     char* name;
     int size;
     int align;
+    int array_size;
 } Type;
 
 
