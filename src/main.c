@@ -107,12 +107,85 @@ int main(int argc, char** argv) {
 
     codegen_emit_asm(ir, asm_file);
 
+    char exe_dir[512];
+    char* last_slash = strrchr(argv[0], '/');
+    if (last_slash) {
+        size_t dir_len = last_slash - argv[0];
+        strncpy(exe_dir, argv[0], dir_len);
+        exe_dir[dir_len] = '\0';
+    } else {
+        strcpy(exe_dir, ".");
+    }
+
+    const char* stdlib_locations[] = {
+        "../../stdlib/uwu_stdlib.o",
+        "../../../stdlib/uwu_stdlib.o",
+        "stdlib/uwu_stdlib.o",
+        "../stdlib/uwu_stdlib.o",
+        NULL
+    };
+
+    const char* stdlib_source_locations[] = {
+        "../../stdlib/uwu_stdlib.c",
+        "../../../stdlib/uwu_stdlib.c",
+        "stdlib/uwu_stdlib.c",
+        "../stdlib/uwu_stdlib.c",
+        NULL
+    };
+
+    char stdlib_path[1024];
+    char stdlib_source[1024];
+    bool found = false;
+
+    for (int i = 0; stdlib_locations[i]; i++) {
+        snprintf(stdlib_path, sizeof(stdlib_path), "%s/%s", exe_dir, stdlib_locations[i]);
+        snprintf(stdlib_source, sizeof(stdlib_source), "%s/%s", exe_dir, stdlib_source_locations[i]);
+
+        FILE* test = fopen(stdlib_path, "r");
+        if (test) {
+            fclose(test);
+            found = true;
+            break;
+        }
+
+        FILE* source_test = fopen(stdlib_source, "r");
+        if (source_test) {
+            fclose(source_test);
+
+            fprintf(stderr, "Building stdlib (first time setup)...\n");
+
+            char build_cmd[2048];
 #ifdef UWUCC_PLATFORM_MACOS
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "clang %s -o %s", asm_file, output_file);
+            snprintf(build_cmd, sizeof(build_cmd), "gcc -c -O2 %s -o %s 2>&1",
+                    stdlib_source, stdlib_path);
+#else
+            snprintf(build_cmd, sizeof(build_cmd), "gcc -c -O2 %s -o %s 2>&1",
+                    stdlib_source, stdlib_path);
+#endif
+
+            int result = system(build_cmd);
+            if (result == 0) {
+                fprintf(stderr, "Stdlib built successfully!\n");
+                found = true;
+                break;
+            } else {
+                fprintf(stderr, "Warning: Failed to build stdlib automatically\n");
+            }
+        }
+    }
+
+    if (!found) {
+        error("Could not find or build uwu_stdlib.o\n"
+              "Searched in %s\n"
+              "Please run: make clean && make", exe_dir);
+    }
+
+#ifdef UWUCC_PLATFORM_MACOS
+    char cmd[2048];
+    snprintf(cmd, sizeof(cmd), "clang %s %s -o %s", asm_file, stdlib_path, output_file);
 #elif defined(UWUCC_PLATFORM_LINUX)
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "gcc %s -no-pie -o %s", asm_file, output_file);
+    char cmd[2048];
+    snprintf(cmd, sizeof(cmd), "gcc %s %s -no-pie -o %s", asm_file, stdlib_path, output_file);
 #endif
 
     if (system(cmd) != 0) {
@@ -124,7 +197,7 @@ int main(int argc, char** argv) {
     parser_free(parser);
     lexer_free(lexer);
     free(source);
-    
+
     if (!keep_asm) {
         remove(asm_file);
     }

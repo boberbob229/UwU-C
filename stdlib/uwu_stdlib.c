@@ -107,6 +107,22 @@ void uwu_report_leaks(void) {
 #endif
 }
 
+void print_str(const char* str) {
+    if (str) puts(str);
+}
+
+int read_int(void) {
+    int n;
+    if (scanf("%d", &n) != 1) {
+        return 0;
+    }
+    return n;
+}
+
+void print_int(int n) {
+    printf("%d\n", n);
+}
+
 void uwu_print(const char* str) {
     if (str) fputs(str, stdout);
 }

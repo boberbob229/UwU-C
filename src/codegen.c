@@ -5,9 +5,11 @@
 * @version 1.0.0
 
 * We aren't playing around anymore.
-* No more bullshit and ignoring the problems with ABI Handling.
-* The AMD64 support is held together with duck tape.
-* ARM and X86 has been smoothed out.
+* No more bs and ignoring the problems with ABI Handling.
+* Everything about AMD64 has been done well.
+* ARM and x86 has been smoothed out.
+* Apple wants Mach-O, Linux wants ELF.
+* That’s why there is now an APPLE flag.
 */
 
 #define _POSIX_C_SOURCE 200809L
@@ -60,6 +62,10 @@ static bool is_label(const char* s) {
     return s && s[0] == 'L' && isdigit(s[1]);
 }
 
+static bool is_string_literal(const char* s) {
+    return s && s[0] == '.';
+}
+
 static int parse_offset(const char* s) {
     if (!s) return 0;
     if (s[0] == 'v' || s[0] == 't') {
@@ -80,28 +86,30 @@ static int align_to(int value, int alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
+static int parse_arg_count(const char* s) {
+    if (!s) return 0;
+    return atoi(s);
+}
+
 #ifdef UWUCC_ARCH_X86_64
 
 static const char* x86_64_arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 static const int x86_64_num_arg_regs = 6;
 
-static const char* x86_64_caller_saved[] = {"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11"};
-static const int x86_64_num_caller_saved = 9;
-
-static const char* x86_64_callee_saved[] = {"rbx", "r12", "r13", "r14", "r15"};
-static const int x86_64_num_callee_saved = 5;
-
 static void emit_x86_64_prologue(FILE* f, const char* func_name, int frame_size) {
+#ifdef __APPLE__
+    fprintf(f, ".globl _%s\n", func_name);
+    fprintf(f, "_%s:\n", func_name);
+#else
     fprintf(f, ".globl %s\n", func_name);
     fprintf(f, ".type %s, @function\n", func_name);
     fprintf(f, "%s:\n", func_name);
+#endif
 
-    // On entry: rsp % 16 == 8 (return address pushed by call) Thanks micl!
-    fprintf(f, "    pushq %%rbp\n");        // rsp % 16 == 0
+    fprintf(f, "    pushq %%rbp\n");
     fprintf(f, "    movq %%rsp, %%rbp\n");
-    fprintf(f, "    pushq %%rbx\n");        // rsp % 16 == 8
-    fprintf(f, "    pushq %%r12\n");        // rsp % 16 == 0
-
+    fprintf(f, "    pushq %%rbx\n");
+    fprintf(f, "    pushq %%r12\n");
 
     int aligned_frame = align_to(frame_size, 16);
 
@@ -109,7 +117,7 @@ static void emit_x86_64_prologue(FILE* f, const char* func_name, int frame_size)
         fprintf(f, "    subq $%d, %%rsp\n", aligned_frame);
     }
 
-    if (config.enable_stack_checks) {
+    if (config.enable_stack_checks && aligned_frame > 0) {
         fprintf(f, "    leaq -%d(%%rsp), %%rax\n", aligned_frame);
         fprintf(f, "    cmpq $0, (%%rax)\n");
     }
@@ -128,6 +136,8 @@ static void emit_x86_64_load(FILE* f, const char* src, int frame_size) {
     } else if (is_var(src) || is_temp(src)) {
         int offset = get_stack_offset(src, frame_size);
         fprintf(f, "    movq %d(%%rbp), %%rax\n", offset);
+    } else if (is_string_literal(src)) {
+        fprintf(f, "    leaq %s(%%rip), %%rax\n", src);
     } else {
         fprintf(f, "    leaq %s(%%rip), %%rax\n", src);
     }
@@ -140,47 +150,36 @@ static void emit_x86_64_store(FILE* f, const char* dest, int frame_size) {
     }
 }
 
-static void emit_x86_64_bounds_check(FILE* f, const char* index, const char* size) {
-    if (!config.enable_bounds_checks) return;
+static void emit_x86_64_call(FILE* f, const char* func, IRInstruction* inst, int frame_size) {
+    int num_args = 0;
 
-    emit_x86_64_load(f, index, 0);
-    fprintf(f, "    cmpq $%s, %%rax\n", size);
-    fprintf(f, "    jl .Lbounds_ok_%s\n", index);
+    for (int i = 1; i < 16 && inst->operands[i]; i++) {
+        num_args++;
+    }
 
-    fprintf(f, "    leaq .Lbounds_error(%%rip), %%rdi\n");
-    fprintf(f, "    call uwu_bounds_error@PLT\n");
-    fprintf(f, ".Lbounds_ok_%s:\n", index);
-}
+    bool is_print_str = strcmp(func, "print_str") == 0;
+    const char* actual_func = is_print_str ? "puts" : func;
 
-static void emit_x86_64_null_check(FILE* f, const char* ptr) {
-    if (!config.enable_null_checks) return;
-
-    emit_x86_64_load(f, ptr, 0);
-    fprintf(f, "    testq %%rax, %%rax\n");
-    fprintf(f, "    jnz .Lnull_ok_%s\n", ptr);
-
-    fprintf(f, "    leaq .Lnull_error(%%rip), %%rdi\n");
-    fprintf(f, "    call uwu_null_error@PLT\n");
-    fprintf(f, ".Lnull_ok_%s:\n", ptr);
-}
-
-static void emit_x86_64_call(FILE* f, const char* func, const char** args, int num_args, int frame_size) {
     bool need_align = ((num_args > 6 ? (num_args - 6) : 0) * 8) % 16 != 0;
     if (need_align) {
         fprintf(f, "    subq $8, %%rsp\n");
     }
 
-    for (int i = num_args - 1; i >= 6; i--) {
-        emit_x86_64_load(f, args[i], frame_size);
+    for (int i = num_args; i > 6; i--) {
+        emit_x86_64_load(f, inst->operands[i], frame_size);
         fprintf(f, "    pushq %%rax\n");
     }
 
-    for (int i = 0; i < num_args && i < 6; i++) {
-        emit_x86_64_load(f, args[i], frame_size);
-        fprintf(f, "    movq %%rax, %%%s\n", x86_64_arg_regs[i]);
+    for (int i = 1; i <= num_args && i <= 6; i++) {
+        emit_x86_64_load(f, inst->operands[i], frame_size);
+        fprintf(f, "    movq %%rax, %%%s\n", x86_64_arg_regs[i-1]);
     }
 
-    fprintf(f, "    call %s@PLT\n", func);
+#ifdef __APPLE__
+    fprintf(f, "    call _%s\n", actual_func);
+#else
+    fprintf(f, "    call %s@PLT\n", actual_func);
+#endif
 
     int stack_args = num_args > 6 ? num_args - 6 : 0;
     if (stack_args > 0 || need_align) {
@@ -355,13 +354,10 @@ static void emit_x86_64_instruction(FILE* f, IRInstruction* inst, int frame_size
         fprintf(f, "    jnz %s\n", inst->operands[1]);
     }
     else if (strcmp(inst->opcode, "call") == 0) {
-        const char* args[16] = {NULL};
-        int num_args = 0;
-        emit_x86_64_call(f, inst->operands[0], args, num_args, frame_size);
+        emit_x86_64_call(f, inst->operands[0], inst, frame_size);
     }
-    else if (strcmp(inst->opcode, "print_str") == 0) {
-        fprintf(f, "    leaq %s(%%rip), %%rdi\n", inst->operands[0]);
-        fprintf(f, "    call puts@PLT\n");
+    else if (strcmp(inst->opcode, "getret") == 0) {
+        emit_x86_64_store(f, inst->operands[0], frame_size);
     }
     else if (strcmp(inst->opcode, "ret") == 0) {
         if (inst->operands[0]) {
@@ -370,8 +366,7 @@ static void emit_x86_64_instruction(FILE* f, IRInstruction* inst, int frame_size
         emit_x86_64_epilogue(f);
     }
     else if (strcmp(inst->opcode, "endfunc") == 0) {
-        // Implicit return for functions without explicit return
-        fprintf(f, "    xorq %%rax, %%rax\n");  // Return 0 by default
+        fprintf(f, "    xorq %%rax, %%rax\n");
         emit_x86_64_epilogue(f);
     }
     else if (strcmp(inst->opcode, "func") == 0) {
@@ -383,15 +378,18 @@ static void emit_x86_64_instruction(FILE* f, IRInstruction* inst, int frame_size
 
 #ifdef UWUCC_ARCH_ARM64
 
-
-// im terry davis if he was a fag
 static const char* arm64_arg_regs[] = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"};
 static const int arm64_num_arg_regs = 8;
 
 static void emit_arm64_prologue(FILE* f, const char* func_name, int frame_size) {
+#ifdef __APPLE__
+    fprintf(f, ".globl _%s\n", func_name);
+    fprintf(f, "_%s:\n", func_name);
+#else
     fprintf(f, ".globl %s\n", func_name);
     fprintf(f, ".type %s, %%function\n", func_name);
     fprintf(f, "%s:\n", func_name);
+#endif
 
     fprintf(f, "    stp x29, x30, [sp, #-16]!\n");
     fprintf(f, "    mov x29, sp\n");
@@ -401,7 +399,7 @@ static void emit_arm64_prologue(FILE* f, const char* func_name, int frame_size) 
         fprintf(f, "    sub sp, sp, #%d\n", aligned_frame);
     }
 
-    if (config.enable_stack_checks) {
+    if (config.enable_stack_checks && aligned_frame > 0) {
         fprintf(f, "    sub x9, sp, #%d\n", aligned_frame);
         fprintf(f, "    ldr xzr, [x9]\n");
     }
@@ -436,9 +434,22 @@ static void emit_arm64_load(FILE* f, const char* src, int frame_size) {
     } else if (is_var(src) || is_temp(src)) {
         int offset = get_stack_offset(src, frame_size);
         fprintf(f, "    ldr x0, [sp, #%d]\n", -offset);
-    } else {
+    } else if (is_string_literal(src)) {
+#ifdef __APPLE__
+        fprintf(f, "    adrp x0, %s@PAGE\n", src);
+        fprintf(f, "    add x0, x0, %s@PAGEOFF\n", src);
+#else
         fprintf(f, "    adrp x0, %s\n", src);
         fprintf(f, "    add x0, x0, :lo12:%s\n", src);
+#endif
+    } else {
+#ifdef __APPLE__
+        fprintf(f, "    adrp x0, %s@PAGE\n", src);
+        fprintf(f, "    add x0, x0, %s@PAGEOFF\n", src);
+#else
+        fprintf(f, "    adrp x0, %s\n", src);
+        fprintf(f, "    add x0, x0, :lo12:%s\n", src);
+#endif
     }
 }
 
@@ -446,6 +457,47 @@ static void emit_arm64_store(FILE* f, const char* dest, int frame_size) {
     if (is_var(dest) || is_temp(dest)) {
         int offset = get_stack_offset(dest, frame_size);
         fprintf(f, "    str x0, [sp, #%d]\n", -offset);
+    }
+}
+
+static void emit_arm64_call(FILE* f, const char* func, IRInstruction* inst, int frame_size) {
+    int num_args = 0;
+
+    for (int i = 1; i < 16 && inst->operands[i]; i++) {
+        num_args++;
+    }
+
+    bool is_print_str = strcmp(func, "print_str") == 0;
+    const char* actual_func = is_print_str ? "puts" : func;
+
+    int stack_args = num_args > 8 ? num_args - 8 : 0;
+    bool need_align = (stack_args * 8) % 16 != 0;
+
+    if (need_align) {
+        fprintf(f, "    sub sp, sp, #8\n");
+    }
+
+    for (int i = num_args; i > 8; i--) {
+        emit_arm64_load(f, inst->operands[i], frame_size);
+        fprintf(f, "    str x0, [sp, #-8]!\n");
+    }
+
+    for (int i = 1; i <= num_args && i <= 8; i++) {
+        emit_arm64_load(f, inst->operands[i], frame_size);
+        if (i < 8) {
+            fprintf(f, "    mov x%d, x0\n", i-1);
+        }
+    }
+
+#ifdef __APPLE__
+    fprintf(f, "    bl _%s\n", actual_func);
+#else
+    fprintf(f, "    bl %s\n", actual_func);
+#endif
+
+    if (stack_args > 0 || need_align) {
+        int cleanup = stack_args * 8 + (need_align ? 8 : 0);
+        fprintf(f, "    add sp, sp, #%d\n", cleanup);
     }
 }
 
@@ -482,6 +534,107 @@ static void emit_arm64_instruction(FILE* f, IRInstruction* inst, int frame_size)
         fprintf(f, "    sdiv x0, x1, x0\n");
         emit_arm64_store(f, inst->operands[0], frame_size);
     }
+    else if (strcmp(inst->opcode, "mod") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    sdiv x2, x1, x0\n");
+        fprintf(f, "    msub x0, x2, x0, x1\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "lt") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    cmp x1, x0\n");
+        fprintf(f, "    cset x0, lt\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "le") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    cmp x1, x0\n");
+        fprintf(f, "    cset x0, le\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "gt") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    cmp x1, x0\n");
+        fprintf(f, "    cset x0, gt\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "ge") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    cmp x1, x0\n");
+        fprintf(f, "    cset x0, ge\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "eq") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    cmp x1, x0\n");
+        fprintf(f, "    cset x0, eq\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "ne") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    cmp x1, x0\n");
+        fprintf(f, "    cset x0, ne\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "and") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    and x0, x1, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "or") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    orr x0, x1, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "xor") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    eor x0, x1, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "shl") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    lsl x0, x1, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "shr") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mov x1, x0\n");
+        emit_arm64_load(f, inst->operands[2], frame_size);
+        fprintf(f, "    lsr x0, x1, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "neg") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    neg x0, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
+    else if (strcmp(inst->opcode, "not") == 0) {
+        emit_arm64_load(f, inst->operands[1], frame_size);
+        fprintf(f, "    mvn x0, x0\n");
+        emit_arm64_store(f, inst->operands[0], frame_size);
+    }
     else if (strcmp(inst->opcode, "label") == 0) {
         fprintf(f, "%s:\n", inst->operands[0]);
     }
@@ -496,10 +649,11 @@ static void emit_arm64_instruction(FILE* f, IRInstruction* inst, int frame_size)
         emit_arm64_load(f, inst->operands[0], frame_size);
         fprintf(f, "    cbnz x0, %s\n", inst->operands[1]);
     }
-    else if (strcmp(inst->opcode, "print_str") == 0) {
-        fprintf(f, "    adrp x0, %s\n", inst->operands[0]);
-        fprintf(f, "    add x0, x0, :lo12:%s\n", inst->operands[0]);
-        fprintf(f, "    bl puts\n");
+    else if (strcmp(inst->opcode, "call") == 0) {
+        emit_arm64_call(f, inst->operands[0], inst, frame_size);
+    }
+    else if (strcmp(inst->opcode, "getret") == 0) {
+        emit_arm64_store(f, inst->operands[0], frame_size);
     }
     else if (strcmp(inst->opcode, "ret") == 0) {
         if (inst->operands[0]) {
@@ -508,8 +662,7 @@ static void emit_arm64_instruction(FILE* f, IRInstruction* inst, int frame_size)
         emit_arm64_epilogue(f, frame_size);
     }
     else if (strcmp(inst->opcode, "endfunc") == 0) {
-        // Implicit return for functions without explicit return
-        fprintf(f, "    mov x0, #0\n");  // Return 0 by default
+        fprintf(f, "    mov x0, #0\n");
         emit_arm64_epilogue(f, frame_size);
     }
     else if (strcmp(inst->opcode, "func") == 0) {
@@ -520,7 +673,11 @@ static void emit_arm64_instruction(FILE* f, IRInstruction* inst, int frame_size)
 #endif
 
 static void emit_string_table(FILE* f, IRProgram* program) {
+#ifdef __APPLE__
+    fprintf(f, ".section __TEXT,__cstring,cstring_literals\n");
+#else
     fprintf(f, ".section .rodata\n");
+#endif
     for (IRInstruction* inst = program->head; inst; inst = inst->next) {
         if (strcmp(inst->opcode, "string") == 0) {
             fprintf(f, "%s:\n", inst->operands[0]);
@@ -536,7 +693,11 @@ static void emit_string_table(FILE* f, IRProgram* program) {
         fprintf(f, ".Lnull_error:\n");
         fprintf(f, "    .asciz \"runtime error: null pointer dereference\\n\"\n");
     }
+#ifdef __APPLE__
+    fprintf(f, ".text\n");
+#else
     fprintf(f, ".section .text\n");
+#endif
 }
 
 void codegen_emit_asm(IRProgram* program, const char* output_file) {
@@ -546,7 +707,11 @@ void codegen_emit_asm(IRProgram* program, const char* output_file) {
     }
 
 #ifdef UWUCC_ARCH_X86_64
+#ifdef __APPLE__
+    fprintf(f, ".section __TEXT,__text,regular,pure_instructions\n");
+#else
     fprintf(f, ".section .text\n");
+#endif
     emit_string_table(f, program);
 
     for (IRInstruction* i = program->head; i; i = i->next) {
@@ -556,7 +721,12 @@ void codegen_emit_asm(IRProgram* program, const char* output_file) {
     }
 
 #elif defined(UWUCC_ARCH_ARM64)
+#ifdef __APPLE__
+    fprintf(f, ".section __TEXT,__text,regular,pure_instructions\n");
+    fprintf(f, ".macosx_version_min 11, 0\n");
+#else
     fprintf(f, ".section .text\n");
+#endif
     emit_string_table(f, program);
 
     for (IRInstruction* i = program->head; i; i = i->next) {

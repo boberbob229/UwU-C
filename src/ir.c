@@ -1,21 +1,8 @@
 /**
  * @file ir.c
- * @brief Intermediate Representation (IR) generation for the UwU-C compiler
+ * @brief My brain hurts but this should be better.....
  * @author Bober
- * @version 1.0.0
- *
- * This file implements the lowering phase from the Abstract Syntax Tree (AST)
- * into a linear, three-address-code-style Intermediate Representation (IR).
- *
- * The IR acts as a target-independent layer between semantic analysis and
- * machine-specific code generation. It encodes expressions, control flow,
- * function structure, variable access, and builtin side effects in a normalized
- * form suitable for backend translation.
- *
- * This module is responsible for:
- *  - Emitting IR instructions for expressions and statements
- *  - Managing temporary values and labels
- *  - Computing function stack frame sizes
+ * @version 2.0.0
  */
 
 #include "ir.h"
@@ -29,11 +16,14 @@ static IRInstruction* ir_inst_new(const char* opcode) {
     IRInstruction* inst = xcalloc(1, sizeof(IRInstruction));
     inst->opcode = xstrdup(opcode);
     inst->next = NULL;
+    for (int i = 0; i < 16; i++) {
+        inst->operands[i] = NULL;
+    }
     return inst;
 }
 
 static void ir_inst_add_operand(IRInstruction* inst, int idx, const char* op) {
-    if (idx >= 0 && idx < 3 && op) {
+    if (idx >= 0 && idx < 16 && op) {
         inst->operands[idx] = xstrdup(op);
     }
 }
@@ -93,10 +83,28 @@ static char* gen_expr_ir(IRProgram* prog, ASTNode* node) {
             break;
         }
 
+        case AST_STRING: {
+            result = new_temp();
+            char label[32];
+            snprintf(label, sizeof(label), ".Lstr%d", string_counter++);
+            ir_emit_string(prog, label, node->data.string_value);
+
+            IRInstruction* inst = ir_inst_new("mov");
+            ir_inst_add_operand(inst, 0, result);
+            ir_inst_add_operand(inst, 1, label);
+            ir_program_append(prog, inst);
+            break;
+        }
+
         case AST_IDENTIFIER: {
+            result = new_temp();
             char var_name[64];
             snprintf(var_name, sizeof(var_name), "v%d", node->stack_offset);
-            result = xstrdup(var_name);
+
+            IRInstruction* inst = ir_inst_new("mov");
+            ir_inst_add_operand(inst, 0, result);
+            ir_inst_add_operand(inst, 1, var_name);
+            ir_program_append(prog, inst);
             break;
         }
 
@@ -120,6 +128,11 @@ static char* gen_expr_ir(IRProgram* prog, ASTNode* node) {
                 case TOKEN_GE:      op = "ge";  break;
                 case TOKEN_AND:     op = "and"; break;
                 case TOKEN_OR:      op = "or";  break;
+                case TOKEN_AMP:     op = "and"; break;
+                case TOKEN_PIPE:    op = "or";  break;
+                case TOKEN_CARET:   op = "xor"; break;
+                case TOKEN_LSHIFT:  op = "shl"; break;
+                case TOKEN_RSHIFT:  op = "shr"; break;
                 default:            op = "add"; break;
             }
 
@@ -142,7 +155,7 @@ static char* gen_expr_ir(IRProgram* prog, ASTNode* node) {
             switch (node->data.op) {
                 case TOKEN_MINUS: op = "neg"; break;
                 case TOKEN_NOT:   op = "not"; break;
-                case TOKEN_TILDE: op = "complement"; break;
+                case TOKEN_TILDE: op = "not"; break;
                 default:          op = "mov"; break;
             }
 
@@ -158,18 +171,29 @@ static char* gen_expr_ir(IRProgram* prog, ASTNode* node) {
         case AST_CALL: {
             result = new_temp();
 
-            for (int i = 1; i < node->child_count; i++) {
-                char* arg = gen_expr_ir(prog, node->children[i]);
-                IRInstruction* arg_inst = ir_inst_new("arg");
-                ir_inst_add_operand(arg_inst, 0, arg);
-                ir_program_append(prog, arg_inst);
-                free(arg);
+            char* args[16] = {NULL};
+            int num_args = node->child_count - 1;
+
+            for (int i = 0; i < num_args; i++) {
+                args[i] = gen_expr_ir(prog, node->children[i + 1]);
             }
 
             IRInstruction* call = ir_inst_new("call");
-            ir_inst_add_operand(call, 0, result);
-            ir_inst_add_operand(call, 1, node->children[0]->data.name);
+            ir_inst_add_operand(call, 0, node->children[0]->data.name);
+
+            for (int i = 0; i < num_args; i++) {
+                ir_inst_add_operand(call, i + 1, args[i]);
+            }
+
             ir_program_append(prog, call);
+
+            IRInstruction* capture = ir_inst_new("getret");
+            ir_inst_add_operand(capture, 0, result);
+            ir_program_append(prog, capture);
+
+            for (int i = 0; i < num_args; i++) {
+                free(args[i]);
+            }
             break;
         }
 
@@ -187,18 +211,6 @@ static void gen_stmt_ir(IRProgram* prog, ASTNode* node) {
     if (!node) return;
 
     switch (node->kind) {
-        case AST_PRINT_STR: {
-            char label[32];
-            snprintf(label, sizeof(label), ".Lstr%d", string_counter++);
-
-           ir_emit_string(prog, label, node->data.print_str.value);
-
-            IRInstruction* inst = ir_inst_new("print_str");
-            ir_inst_add_operand(inst, 0, label);
-            ir_program_append(prog, inst);
-            break;
-        }
-
         case AST_RETURN: {
             IRInstruction* inst = ir_inst_new("ret");
             if (node->child_count > 0) {
@@ -307,11 +319,74 @@ static void gen_stmt_ir(IRProgram* prog, ASTNode* node) {
             break;
         }
 
+        case AST_FOR: {
+            if (node->child_count >= 1 && node->children[0]) {
+                gen_stmt_ir(prog, node->children[0]);
+            }
+
+            char* start = new_label();
+            char* end = new_label();
+            char* continue_label = new_label();
+
+            IRInstruction* lbl_start = ir_inst_new("label");
+            ir_inst_add_operand(lbl_start, 0, start);
+            ir_program_append(prog, lbl_start);
+
+            if (node->child_count >= 2 && node->children[1]) {
+                char* cond = gen_expr_ir(prog, node->children[1]);
+                IRInstruction* br = ir_inst_new("brz");
+                ir_inst_add_operand(br, 0, cond);
+                ir_inst_add_operand(br, 1, end);
+                ir_program_append(prog, br);
+                free(cond);
+            }
+
+            if (node->child_count >= 4 && node->children[3]) {
+                gen_stmt_ir(prog, node->children[3]);
+            }
+
+            IRInstruction* lbl_continue = ir_inst_new("label");
+            ir_inst_add_operand(lbl_continue, 0, continue_label);
+            ir_program_append(prog, lbl_continue);
+
+            if (node->child_count >= 3 && node->children[2]) {
+                char* inc = gen_expr_ir(prog, node->children[2]);
+                free(inc);
+            }
+
+            IRInstruction* jmp = ir_inst_new("jmp");
+            ir_inst_add_operand(jmp, 0, start);
+            ir_program_append(prog, jmp);
+
+            IRInstruction* lbl_end = ir_inst_new("label");
+            ir_inst_add_operand(lbl_end, 0, end);
+            ir_program_append(prog, lbl_end);
+
+            free(start);
+            free(end);
+            free(continue_label);
+            break;
+        }
+
+        case AST_BREAK: {
+            break;
+        }
+
+        case AST_CONTINUE: {
+            break;
+        }
+
         case AST_BLOCK:
             for (int i = 0; i < node->child_count; i++) {
                 gen_stmt_ir(prog, node->children[i]);
             }
             break;
+
+        case AST_CALL: {
+            char* tmp = gen_expr_ir(prog, node);
+            free(tmp);
+            break;
+        }
 
         default:
             if (node->kind >= AST_BINARY_OP && node->kind <= AST_CALL) {
@@ -332,7 +407,7 @@ static void gen_function_ir(IRProgram* prog, ASTNode* node) {
 
     gen_stmt_ir(prog, node->children[2]);
 
-    int local_size = node->stack_offset;
+    int local_size = node->stack_offset * 8;
     int temp_size = temp_counter * 8;
     prog->frame_size = ((local_size + temp_size + 15) & ~15);
 
@@ -364,7 +439,7 @@ void ir_program_free(IRProgram* program) {
     while (cur) {
         IRInstruction* next = cur->next;
         free(cur->opcode);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 16; i++) {
             free(cur->operands[i]);
         }
         free(cur);
@@ -379,14 +454,14 @@ void ir_dump(IRProgram* program, FILE* out) {
         fprintf(out, "IR: (empty)\n");
         return;
     }
-    
-    fprintf(out, "IR (frame_size=%d, temps=%d):\n", 
+
+    fprintf(out, "IR (frame_size=%d, temps=%d):\n",
             program->frame_size, program->temp_count);
-    
+
     IRInstruction* inst = program->head;
     while (inst) {
         fprintf(out, "  %s", inst->opcode);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 16; i++) {
             if (inst->operands[i]) {
                 fprintf(out, " %s", inst->operands[i]);
             }
@@ -395,3 +470,4 @@ void ir_dump(IRProgram* program, FILE* out) {
         inst = inst->next;
     }
 }
+
