@@ -137,7 +137,7 @@ The primary function for outputting text to the console is `uwu_print`.
 **Example:**
 
 ```uwu
-uwu_print("Hello World!"); // Use print_str for now cuz im so tired.
+uwu_print("Hello World!");
 ```
 
 ## 5. Other Keywords
