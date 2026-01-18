@@ -1,0 +1,1 @@
+this will be changed uh if you want to support me just add some code and stuff if you leak code from here i dont really care no make yet cuz i haven't figured out x86 support super well... (its there ig...) be aware some of the language might not be the best 
