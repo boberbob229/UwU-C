@@ -1,9 +1,7 @@
 #include "types.h"
 #include "idt.h"
 
-
-// im a moron ill code a handler for 1366: v=20 e=0000 i=0 cpl=0 IP=0008:00001e19 pc=00001e19 SP=0010:0008fe88 env->regs[R_EAX]=0000002b
-
+// wouldn't i look super cute getting my brains blown out
 extern void irq0();
 extern void irq1();
 extern void irq2();
@@ -21,8 +19,24 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
-typedef void (*irq_handler_t)(void);
+
+struct regs {
+    u32 gs, fs, es, ds;
+    u32 edi, esi, ebp, esp, ebx, edx, ecx, eax;
+    u32 int_no, err_code;
+    u32 eip, cs, eflags, useresp, ss;
+};
+
+
+typedef void (*irq_handler_t)(struct regs*);
+
+
 static irq_handler_t irq_handlers[16] = {0};
+
+static inline void outb(u16 port, u8 val) {
+    asm volatile("outb %0, %1" :: "a"(val), "Nd"(port));
+}
+
 
 void irq_install_handler(int irq, irq_handler_t handler) {
     if (irq >= 0 && irq < 16) {
@@ -43,7 +57,41 @@ void* irq_get_handler(int irq) {
     return 0;
 }
 
-void irq_init() {
+
+void irq_remap(void) {
+    outb(0x20, 0x11);
+    outb(0xA0, 0x11);
+    outb(0x21, 0x20);
+    outb(0xA1, 0x28);
+    outb(0x21, 0x04);
+    outb(0xA1, 0x02);
+    outb(0x21, 0x01);
+    outb(0xA1, 0x01);
+
+
+    outb(0x21, 0xFD);
+    outb(0xA1, 0xFF);
+}
+
+
+void irq_handler(struct regs* r) {
+    int irq = r->int_no - 32;
+
+    if (irq >= 0 && irq < 16 && irq_handlers[irq]) {
+        irq_handlers[irq](r);
+    }
+
+
+    if (irq >= 8) {
+        outb(0xA0, 0x20);  // slave PIC
+    }
+    outb(0x20, 0x20);      // master PIC
+}
+
+
+void irq_init(void) {
+    irq_remap();
+
     idt_set_gate(32, (u32)irq0, 0x08, 0x8E);
     idt_set_gate(33, (u32)irq1, 0x08, 0x8E);
     idt_set_gate(34, (u32)irq2, 0x08, 0x8E);
