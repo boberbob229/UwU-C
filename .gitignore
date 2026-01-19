@@ -18,3 +18,6 @@ project/*.uwu
 
 # Ignore .o files
 *.o
+
+# Ingore the kernel build files
+/kernel/build/
