@@ -1,46 +1,23 @@
-AS  := nasm
-CC  := gcc
-LD  := ld
+AS := nasm
+CC := gcc
+LD := ld
 
 ASFLAGS_BIN := -f bin
 ASFLAGS_ELF := -f elf32
 
-CFLAGS := \
-	-m32 \
-	-ffreestanding \
-	-nostdlib -nostdinc \
-	-fno-builtin \
-	-fno-stack-protector \
-	-fno-pie -fno-pic \
-	-O2 -Wall -Wextra
+CFLAGS := -m32 -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-pie -fno-pic -O2 -Wall -Wextra
 
 LDFLAGS := -m elf_i386 -T linker.ld
 
 BUILD := build
 
-BOOT_BIN   := $(BUILD)/boot.bin
-KERNEL_BIN := $(BUILD)/kernel.bin
-KERNEL_RAW := $(BUILD)/kernel_flat.bin
-IMAGE      := $(BUILD)/uwuos.img
-
-KERNEL_OBJS := \
-	$(BUILD)/entry.o \
-	$(BUILD)/kernel.o \
-	$(BUILD)/idt.o \
-	$(BUILD)/isr.o \
-	$(BUILD)/isr_stub.o \
-	$(BUILD)/irq.o \
-	$(BUILD)/keyboard.o
-
-.PHONY: all clean run
-
-all: $(IMAGE)
+all: $(BUILD)/uwuos.img
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(BOOT_BIN): boot.asm gdt.asm | $(BUILD)
-	$(AS) $(ASFLAGS_BIN) boot.asm -o $@
+$(BUILD)/boot.bin: boot.asm | $(BUILD)
+	$(AS) $(ASFLAGS_BIN) $< -o $@
 
 $(BUILD)/entry.o: entry.asm | $(BUILD)
 	$(AS) $(ASFLAGS_ELF) $< -o $@
@@ -48,7 +25,7 @@ $(BUILD)/entry.o: entry.asm | $(BUILD)
 $(BUILD)/isr_stub.o: isr.asm | $(BUILD)
 	$(AS) $(ASFLAGS_ELF) $< -o $@
 
-$(BUILD)/kernel.o: kernel.c | $(BUILD)
+$(BUILD)/kernel.o: kernel.c types.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/idt.o: idt.c idt.h types.h | $(BUILD)
@@ -57,27 +34,21 @@ $(BUILD)/idt.o: idt.c idt.h types.h | $(BUILD)
 $(BUILD)/isr.o: isr.c types.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/irq.o: irq.c types.h | $(BUILD)
+$(BUILD)/irq.o: irq.c types.h idt.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/keyboard.o: keyboard.c types.h | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/kernel.bin: $(BUILD)/entry.o $(BUILD)/kernel.o $(BUILD)/idt.o $(BUILD)/isr.o $(BUILD)/isr_stub.o $(BUILD)/irq.o linker.ld
+	$(LD) $(LDFLAGS) $(BUILD)/entry.o $(BUILD)/kernel.o $(BUILD)/idt.o $(BUILD)/isr.o $(BUILD)/isr_stub.o $(BUILD)/irq.o -o $@
 
-$(KERNEL_BIN): $(KERNEL_OBJS) linker.ld
-	$(LD) $(LDFLAGS) $(KERNEL_OBJS) -o $@
-
-$(IMAGE): $(BOOT_BIN) $(KERNEL_BIN)
-	objcopy -O binary $(KERNEL_BIN) $(KERNEL_RAW)
-	cat $(BOOT_BIN) $(KERNEL_RAW) > $@
+$(BUILD)/uwuos.img: $(BUILD)/boot.bin $(BUILD)/kernel.bin
+	objcopy -O binary $(BUILD)/kernel.bin $(BUILD)/kernel_flat.bin
+	cat $(BUILD)/boot.bin $(BUILD)/kernel_flat.bin > $@
 	truncate -s 1440K $@
 
-run: $(IMAGE)
-	qemu-system-i386 \
-		-drive format=raw,file=$(IMAGE) \
-		-m 128M \
-		-no-reboot \
-		-no-shutdown \
-		-d int,cpu_reset
+run: $(BUILD)/uwuos.img
+	qemu-system-i386 -drive format=raw,file=$(BUILD)/uwuos.img -m 128M
 
 clean:
 	rm -rf $(BUILD)
+
+.PHONY: all clean run

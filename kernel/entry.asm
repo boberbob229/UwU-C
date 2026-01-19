@@ -1,11 +1,8 @@
 [bits 32]
+[extern kernel_main]
+
 global _start
-extern kernel_main
 
 _start:
-    cli
     call kernel_main
-
-.hang:
-    hlt
-    jmp .hang
+    jmp $ ; maybe i should just jmp into heaven

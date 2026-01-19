@@ -7,7 +7,7 @@ extern isr_handler
 extern irq_handler
 
 
-isr_common:
+isr_common:   ; mayb not being able to breathe or think is better then this
     pusha
     push ds
     push es
