@@ -1,7 +1,6 @@
 #include "types.h"
 #include "idt.h"
 
-// wouldn't i look super cute getting my brains blown out
 extern void irq0();
 extern void irq1();
 extern void irq2();
@@ -95,11 +94,10 @@ void irq_handler(struct regs* r) {
         irq_handlers[irq](r);
     }
 
-
     if (irq >= 8) {
-        outb(0xA0, 0x20);  // slave PIC
+        outb(0xA0, 0x20);
     }
-    outb(0x20, 0x20);      // master PIC
+    outb(0x20, 0x20);
 }
 
 
