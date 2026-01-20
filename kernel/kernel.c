@@ -12,6 +12,7 @@ static u16* vga_buffer;
 static u32  cursor_y, cursor_x;
 static u8   terminal_color;
 static char current_path[256];
+static u8 is_light_mode = 0;
 
 #define KBD_BUFFER_SIZE 256
 static u8 kbd_buffer[KBD_BUFFER_SIZE];
@@ -113,6 +114,165 @@ u32 str_len(const char* s) {
     u32 len = 0;
     while (*s++) len++;
     return len;
+}
+
+extern volatile u32 ticks;
+
+void get_cpu_brand (char * buf) {
+    u32 brand[12];
+    for (u32 i = 0; i < 3; i ++) {
+        asm volatile("cpuid" : "=a"(brand[i * 4]), "=b"(brand[i * 4 + 1]), "=c"(brand[i * 4 + 2]), "=d"(brand[i * 4 + 3]) : "a"(0x80000002 + i));
+    }
+    char * p = (char *) brand;
+    for (int i = 0; i < 48; i ++) {
+        if (p[i] == 0) {
+            break;
+        }
+        buf[i] = p[i];
+    }
+    buf[47] = 0;
+}
+
+u8 get_rtc_register (int reg) {
+    outb(0x70, reg);
+    return inb(0x71);
+}
+
+extern u32 _end;
+
+u32 fetch_used_memory ( ) {
+    u32 kernel_start = 0x1000;
+    u32 kernel_end = (u32) & _end;
+    return (kernel_end - kernel_start) / 1024;
+}
+
+u32 fetch_total_memory ( ) {
+    outb(0x70, 0x17);
+    u16 low = inb(0x71);
+    outb(0x70, 0x18);
+    u16 high = inb(0x71);
+    u32 total_kb = (high << 8) | low;
+    return (total_kb / 1024) + 1;
+}
+
+void int_to_str (char * buf, u32 n) {
+    if (n == 0) {
+        buf[0] = '0'; buf[1] = 0;
+        return;
+    }
+    int i = 0, j;
+    while (n > 0) {
+        buf[i ++] = (n % 10) + '0';
+        n /= 10;
+    }
+    buf[i] = 0;
+    for (j = 0; j < i / 2; j ++) {
+        char tmp = buf[j];
+        buf[j] = buf[i - j - 1];
+        buf[i - j - 1] = tmp;
+    }
+}
+
+u8 bcd_to_bin (u8 val) {
+    return ((val / 16) * 10) + (val % 16);
+}
+
+void get_date_string (char * buf) {
+    u32 ptr = 0;
+    u8 day = get_rtc_register(0x07);
+    u8 month = get_rtc_register(0x08);
+    u8 year = get_rtc_register(0x09);
+
+    char d_str[16], m_str[16], y_str[16];
+    int_to_str(d_str, bcd_to_bin(day));
+    int_to_str(m_str, bcd_to_bin(month));
+    int_to_str(y_str, bcd_to_bin(year));
+
+    if (bcd_to_bin(day) < 10) buf[ptr ++] = '0';
+    for(int i = 0; d_str[i]; i ++) buf[ptr ++] = d_str[i];
+    buf[ptr ++] = '/';
+
+    if (bcd_to_bin(month) < 10) buf[ptr ++] = '0';
+    for(int i = 0; m_str[i]; i ++) buf[ptr ++] = m_str[i];
+    buf[ptr ++] = '/';
+
+    buf[ptr ++] = '2'; buf[ptr ++] = '0';
+    if (bcd_to_bin(year) < 10) buf[ptr ++] = '0';
+    for(int i = 0; y_str[i]; i ++) buf[ptr ++] = y_str[i];
+
+    buf[ptr] = 0;
+}
+
+void fetch_print_info (const char * key, const char * val, u8 val_color) {
+    cursor_x = 18;
+    terminal_color = is_light_mode ? 0xF3 : 0x0B; terminal_write(key);
+    terminal_color = is_light_mode ? 0xF0 : 0x0F; terminal_write(": ");
+    terminal_color = val_color; terminal_write(val);
+
+    cursor_y ++;
+    if (cursor_y >= SCREEN_H) terminal_scroll();
+
+};
+
+void breadfetch (void) {
+    char cpu_buf[49];
+    char mem_total_buf[16];
+    char mem_used_buf[16];
+    char uptime_buf[16];
+    char date_buf[24];
+
+    get_cpu_brand(cpu_buf);
+    get_date_string(date_buf);
+    int_to_str(uptime_buf, ticks / 100);
+    int_to_str(mem_total_buf, fetch_total_memory());
+    int_to_str(mem_used_buf, fetch_used_memory());
+
+    terminal_clear();
+    terminal_putc('\n');
+    terminal_color = is_light_mode ? 0xF8 : 0x08;
+    terminal_writeln("  /\\_/\\");
+    terminal_writeln(" ( o.o )");
+    terminal_writeln("  > ^ <");
+    terminal_writeln("  Uwu-C");
+    terminal_writeln("       ");
+    terminal_writeln("       ");
+    terminal_writeln("       ");
+    terminal_writeln("       ");
+
+    cursor_y -= 7;
+
+    fetch_print_info("OS", "UwU-OS", is_light_mode ? 0xFD : 0x0D);
+    fetch_print_info("Date", date_buf, is_light_mode ? 0xF0 : 0x0F);
+    fetch_print_info("Kernel", "crwumb-x86", is_light_mode ? 0xF0 : 0x07);
+
+    cursor_x = 18;
+    terminal_color = is_light_mode ? 0xF3 : 0x0B; terminal_write("Uptime");
+    terminal_color = is_light_mode ? 0xF0 : 0x0F; terminal_write(": ");
+    terminal_color = is_light_mode ? 0xF0 : 0x07; terminal_write(uptime_buf);
+    terminal_write("s");
+    cursor_y ++;
+
+    fetch_print_info("CPU", cpu_buf, is_light_mode ? 0xFE : 0x0E);
+    fetch_print_info("Shell", "crwumb-sh", is_light_mode ? 0xF0 : 0x07);
+
+    cursor_x = 18;
+    terminal_color = is_light_mode ? 0xF3 : 0x0B; terminal_write("Memory");
+    terminal_color = is_light_mode ? 0xF0 : 0x0F; terminal_write(": ");
+    terminal_color = is_light_mode ? 0xF2 : 0x02; terminal_write(mem_used_buf);
+    terminal_write(" KB / ");
+    terminal_write(mem_total_buf);
+    terminal_write(" MB");
+    cursor_y ++;
+
+    terminal_color = is_light_mode ? 0xF0 : 0x0F;
+    cursor_x = 0;
+    terminal_putc('\n');
+}
+
+void terminal_set_light_mode (void) {
+    is_light_mode = 1;
+    terminal_color = 0xF0;
+    terminal_clear();
 }
 
 void terminal_readline(char* buf, u32 max) {
@@ -288,6 +448,8 @@ void shell_execute(char* cmd) {
         terminal_writeln("  echo   - Print message");
         terminal_writeln("  pwd    - Show current directory");
         terminal_writeln("  ver    - Show OS version");
+        terminal_writeln("  fetch  - System info");
+        terminal_writeln("  light  - Set light mode");
         terminal_writeln("  edit   - Text editor");
         terminal_writeln("  paint  - Paint program");
         terminal_writeln("  halt   - Shutdown system");
@@ -301,6 +463,10 @@ void shell_execute(char* cmd) {
         terminal_writeln("kill me");
     } else if (!str_compare(cmd, "edit")) {
         text_editor();
+    } else if (!str_compare(cmd, "fetch")) {
+        breadfetch();
+    } else if (!str_compare(cmd, "light")) {
+        terminal_set_light_mode();
     } else if (!str_compare(cmd, "paint")) {
         paint_app();
     } else if (!str_compare(cmd, "halt")) {
@@ -315,9 +481,9 @@ void shell_execute(char* cmd) {
 void shell_loop(void) {
     char buf[256];
     while (1) {
-        terminal_color = 0x0A;
+        terminal_color = is_light_mode ? 0xF2 : 0x0A;
         terminal_write("# ");
-        terminal_color = 0x0F;
+        terminal_color = is_light_mode ? 0xF0 : 0x0F;
         terminal_readline(buf, sizeof(buf));
         shell_execute(buf);
     }
@@ -330,6 +496,8 @@ void kernel_main(void) {
 
     idt_init();
     irq_init();
+
+    timer_init(100);
 
     irq_install_handler(1, keyboard_handler);
 

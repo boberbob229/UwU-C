@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     g++-multilib \
     nasm \
     qemu-system-x86 \
+    xorriso \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /kernel

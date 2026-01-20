@@ -44,6 +44,20 @@ void irq_install_handler(int irq, irq_handler_t handler) {
     }
 }
 
+volatile u32 ticks = 0;
+
+void timer_handler (struct regs * r) {
+    ticks ++;
+}
+
+void timer_init (u32 hz) {
+    u32 divisor = 1193180 / hz;
+    outb(0x43, 0x36);
+    outb(0x40, divisor & 0xFF);
+    outb(0x40, (divisor >> 8) & 0xFF);
+    irq_install_handler(0, timer_handler);
+}
+
 void irq_uninstall_handler(int irq) {
     if (irq >= 0 && irq < 16) {
         irq_handlers[irq] = 0;
