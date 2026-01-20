@@ -233,9 +233,9 @@ void breadfetch (void) {
     terminal_writeln("  /\\_/\\");
     terminal_writeln(" ( o.o )");
     terminal_writeln("  > ^ <");
+    terminal_writeln("       ");
     terminal_writeln("  Uwu-C");
-    terminal_writeln("       ");
-    terminal_writeln("       ");
+    terminal_writeln("  -----");
     terminal_writeln("       ");
     terminal_writeln("       ");
 
@@ -243,7 +243,7 @@ void breadfetch (void) {
 
     fetch_print_info("OS", "UwU-OS", is_light_mode ? 0xFD : 0x0D);
     fetch_print_info("Date", date_buf, is_light_mode ? 0xF0 : 0x0F);
-    fetch_print_info("Kernel", "crwumb-x86", is_light_mode ? 0xF0 : 0x07);
+    fetch_print_info("Kernel", "uwuc-x86", is_light_mode ? 0xF0 : 0x07);
 
     cursor_x = 18;
     terminal_color = is_light_mode ? 0xF3 : 0x0B; terminal_write("Uptime");
@@ -252,8 +252,8 @@ void breadfetch (void) {
     terminal_write("s");
     cursor_y ++;
 
-    fetch_print_info("CPU", cpu_buf, is_light_mode ? 0xFE : 0x0E);
-    fetch_print_info("Shell", "crwumb-sh", is_light_mode ? 0xF0 : 0x07);
+    fetch_print_info("CPU", cpu_buf, is_light_mode ? 0xF0 : 0x0E);
+    fetch_print_info("Shell", "uwuc-sh", is_light_mode ? 0xF0 : 0x07);
 
     cursor_x = 18;
     terminal_color = is_light_mode ? 0xF3 : 0x0B; terminal_write("Memory");
