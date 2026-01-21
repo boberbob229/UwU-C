@@ -1,3 +1,4 @@
+#include "fs.h"
 #include "types.h"
 
 #define VIDEO_MEM 0xB8000
@@ -540,20 +541,19 @@ void shell_execute(char* cmd) {
         if (*args) {
             char path[256];
             construct_path(path, current_path, args);
+            fs_normalize_path(path);
 
-            if (path[str_len(path) - 1] != '/') {
-                u32 len = str_len(path);
+            u32 len = str_len(path);
+            if (path[len - 1] != '/') {
                 path[len] = '/';
                 path[len + 1] = 0;
             }
 
-            if (fs_exists(path) && fs_size(path) == 0) {
+            if (fs_exists(path) && fs_is_directory(path)) {
                 str_copy(current_path, path);
             } else {
                 terminal_writeln("directory not found");
             }
-        } else {
-            str_copy(current_path, "/");
         }
     } else if (!str_compare(cmd, "ver")) {
         terminal_writeln("UwU OS v1.0.0");
@@ -608,6 +608,13 @@ void shell_execute(char* cmd) {
         if (*args) {
             char path[256];
             construct_path(path, current_path, args);
+            fs_normalize_path(path);
+
+            u32 len = str_len(path);
+            if (path[len - 1] != '/') {
+                path[len] = '/';
+                path[len + 1] = 0;
+            }
 
             if (fs_create(path, 1) == 0) {
                 terminal_writeln("directory created");

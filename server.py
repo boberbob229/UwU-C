@@ -62,27 +62,30 @@ def handle_client(conn):
         conn.sendall(http_response(b"pong\n"))
         return
 
-    if path.startswith("/packages"):
-        body = "\n".join(list_packages()).encode()
-        conn.sendall(http_response(body))
-        return
-
     if path.startswith("/packages/"):
-        rel = path[len("/packages/"):]
-        fs_path = os.path.normpath(os.path.join(PACKAGE_ROOT, rel))
+        fs_path = os.path.normpath(os.path.join(PACKAGE_ROOT, path[len("/packages/"):]))
 
-        if not fs_path.startswith(os.path.abspath(PACKAGE_ROOT)):
+        root = os.path.abspath(PACKAGE_ROOT)
+        target = os.path.abspath(fs_path)
+
+        if not target.startswith(root):
             conn.sendall(http_response(b"Forbidden\n", "403 Forbidden"))
             return
 
-        data = serve_file(fs_path)
+        data = serve_file(target)
         if data is None:
             conn.sendall(http_response(b"Not Found\n", "404 Not Found"))
             return
 
-        content_type = "application/json" if fs_path.endswith(".json") else "text/plain"
+        content_type = "application/json" if target.endswith(".json") else "text/plain"
         conn.sendall(http_response(data, content_type=content_type))
         return
+
+    if path == "/packages":
+        body = "\n".join(list_packages()).encode()
+        conn.sendall(http_response(body))
+        return
+
 
     conn.sendall(http_response(b"Not Found\n", "404 Not Found"))
 

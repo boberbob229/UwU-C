@@ -32,4 +32,8 @@ int fs_list(const char* path, char* buffer, u32 max_size);
 int fs_exists(const char* path);
 u32 fs_size(const char* path);
 
+int fs_find(const char* path);
+int fs_is_directory(const char* path);
+void fs_normalize_path(char* path);
+
 #endif
