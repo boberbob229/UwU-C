@@ -1,0 +1,4 @@
+nuzzle main ( ) -> chonk {
+    uwu_print("Breadfetch Version 0.0.2");
+    gimme 0;
+}

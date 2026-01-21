@@ -881,205 +881,187 @@ void shell_execute(char* cmd) {
             }
         }
     } else if (!str_compare(cmd, "pkg")) {
-        if (*args) {
-            char* space = args;
-            while (*space && *space != ' ') space++;
-            if (*space) *space++ = 0;
-
-            if (!str_compare(args, "install")) {
-                if (*space) {
-                    char* space2 = space;
-                    while (*space2 && *space2 != ' ') space2++;
-                    if (*space2) *space2++ = 0;
-
-                    u32 server_ip = str_to_ip(space);
-                    char path[256];
-                    str_copy(path, "/packages/");
-                    u32 path_len = str_len(path);
-                    str_copy(path + path_len, space2);
-
-                    terminal_write("Downloading package from ");
-                    terminal_write(space);
-                    terminal_write("... ");
-
-	                    u8 response[8192];
-                    u32 response_len = http_request(server_ip, 40000, path, response, sizeof(response));
-
-                    if (response_len > 0) {
-                        u8 is_ok = 0;
-                        if (response_len >= 12) {
-                            if (response[9] == '2' && response[10] == '0' && response[11] == '0') {
-                                is_ok = 1;
-                            }
-                        }
-
-                        if (!is_ok) {
-                            terminal_writeln("failed (server error or package not found)");
-                        } else {
-                            char pkg_path[256];
-                            str_copy(pkg_path, "/packages/");
-                            u32 pkg_path_len = str_len(pkg_path);
-                            str_copy(pkg_path + pkg_path_len, space2);
-
-                            u32 body_start = 0;
-                            u32 content_length = 0;
-
-                            for (u32 i = 0; i < response_len - 3; i++) {
-                                if (response[i] == '\r' && response[i+1] == '\n' &&
-                                    response[i+2] == '\r' && response[i+3] == '\n') {
-                                    body_start = i + 4;
-                                    break;
-                                }
-                            }
-
-                            if (body_start >= 16) {
-                                for (u32 i = 0; i < body_start - 15; i++) {
-                                    if (response[i] == 'C' && response[i+1] == 'o' &&
-                                        response[i+2] == 'n' && response[i+3] == 't' &&
-                                        response[i+4] == 'e' && response[i+5] == 'n' &&
-                                        response[i+6] == 't' && response[i+7] == '-' &&
-                                        response[i+8] == 'L' && response[i+9] == 'e' &&
-                                        response[i+10] == 'n' && response[i+11] == 'g' &&
-                                        response[i+12] == 't' && response[i+13] == 'h') {
-                                        u32 j = i + 14;
-                                        while (j < body_start && (response[j] == ' ' || response[j] == ':')) j++;
-                                        while (j < body_start && response[j] >= '0' && response[j] <= '9') {
-                                            content_length = content_length * 10 + (response[j] - '0');
-                                            j++;
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-
-                            u32 body_len;
-                            if (body_start > 0 && body_start < response_len) {
-                                if (content_length > 0) {
-                                    body_len = content_length;
-                                } else {
-                                    body_len = response_len - body_start;
-                                }
-                                u32 body_end = body_start + body_len;
-                                if (body_end > response_len) body_end = response_len;
-                                
-                                fs_write(pkg_path, response + body_start, body_end - body_start);
-                                terminal_writeln("done");
-                            } else {
-                                fs_write(pkg_path, response, response_len);
-                                terminal_writeln("done");
-                            }
-                        }
-                    } else {
-                        terminal_writeln("failed (connection timeout or server unreachable)");
-                    }
-                } else {
-                    terminal_writeln("usage: pkg install <server_ip> <package_name>");
-                }
-            } else if (!str_compare(args, "list")) {
-                if (*space) {
-                    u32 server_ip = str_to_ip(space);
-
-	                    u8 response[8192];
-                    u32 response_len = http_request(server_ip, 40000, "/packages/list", response, sizeof(response));
-
-                    if (response_len > 0) {
-                        u8 is_ok = 0;
-                        if (response_len >= 12) {
-                            if (response[9] == '2' && response[10] == '0' && response[11] == '0') {
-                                is_ok = 1;
-                            }
-                        }
-
-                        if (!is_ok) {
-                            terminal_writeln("failed (server error)");
-                        } else {
-                            u32 body_start = 0;
-                            u32 content_length = 0;
-
-                            for (u32 i = 0; i < response_len - 3; i++) {
-                                if (response[i] == '\r' && response[i+1] == '\n' &&
-                                    response[i+2] == '\r' && response[i+3] == '\n') {
-                                    body_start = i + 4;
-                                    break;
-                                }
-                            }
-
-                            if (body_start >= 16) {
-                                for (u32 i = 0; i < body_start - 15; i++) {
-                                    if (response[i] == 'C' && response[i+1] == 'o' &&
-                                        response[i+2] == 'n' && response[i+3] == 't' &&
-                                        response[i+4] == 'e' && response[i+5] == 'n' &&
-                                        response[i+6] == 't' && response[i+7] == '-' &&
-                                        response[i+8] == 'L' && response[i+9] == 'e' &&
-                                        response[i+10] == 'n' && response[i+11] == 'g' &&
-                                        response[i+12] == 't' && response[i+13] == 'h') {
-                                        u32 j = i + 14;
-                                        while (j < body_start && (response[j] == ' ' || response[j] == ':')) j++;
-                                        while (j < body_start && response[j] >= '0' && response[j] <= '9') {
-                                            content_length = content_length * 10 + (response[j] - '0');
-                                            j++;
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (body_start > 0 && body_start < response_len) {
-                                u32 body_len;
-                                if (content_length > 0) {
-                                    body_len = content_length;
-                                } else {
-                                    body_len = response_len - body_start;
-                                }
-                                if (body_start + body_len > response_len) {
-                                    body_len = response_len - body_start;
-                                }
-
-                                u32 body_end = body_start + body_len;
-                                if (body_end > response_len) body_end = response_len;
-                                
-                                if (body_end < sizeof(response)) {
-                                    response[body_end] = 0;
-                                } else {
-                                    response[sizeof(response) - 1] = 0;
-                                }
-                                terminal_writeln("");
-                                terminal_write((char*)(response + body_start));
-                                terminal_writeln("");
-                            } else {
-                                terminal_writeln("failed to parse response");
-                            }
-                        }
-                    } else {
-                        terminal_writeln("failed (connection timeout or server unreachable)");
-                    }
-                } else {
-                    char buffer[1024];
-                    int result = fs_list("/packages/", buffer, sizeof(buffer));
-                    if (result > 0) {
-                        terminal_writeln("Installed packages:");
-                        terminal_write(buffer);
-                    } else {
-                        terminal_writeln("no packages installed");
-                    }
-                }
-            } else if (!str_compare(args, "test")) {
-                if (*space) {
-                    u32 server_ip = str_to_ip(space);
-                    terminal_write("Testing connectivity to ");
-                    terminal_write(space);
-                    terminal_write("... ");
-                    icmp_send_ping(server_ip);
-                    terminal_writeln("Ping sent! Check for ping replies above.");
-                } else {
-                    terminal_writeln("usage: pkg test <server_ip>");
-                }
-            } else {
-                terminal_writeln("usage: pkg <install|list|test> [args]");
-            }
-        } else {
+        if (!*args) {
             terminal_writeln("usage: pkg <install|list|test> [args]");
+            return;
         }
+
+        char* space = args;
+        while (*space && *space != ' ') space++;
+        if (*space) *space++ = 0;
+
+        if (!str_compare(args, "test")) {
+            if (!*space) {
+                terminal_writeln("usage: pkg test <server_ip>");
+                return;
+            }
+
+            u32 server_ip = str_to_ip(space);
+            terminal_write("Testing connectivity to ");
+            terminal_write(space);
+            terminal_writeln("... ");
+
+            u8 response[256];
+            u32 len = http_request(server_ip, 40000, "/ping", response, sizeof(response));
+
+            if (len > 0 && response[0] == '2' && response[1] == '0' && response[2] == '0') {
+                terminal_writeln("ok");
+            } else {
+                terminal_writeln("failed");
+            }
+            return;
+        }
+
+        if (!str_compare(args, "list")) {
+            if (!*space) {
+                terminal_writeln("usage: pkg list [server_ip]");
+                return;
+            }
+
+            u32 server_ip = str_to_ip(space);
+            u8 response[4096];
+
+            u32 len = http_request(server_ip, 40000, "/packages", response, sizeof(response));
+            if (!len) {
+                terminal_writeln("connection failed");
+                return;
+            }
+
+            if (response[9] != '2') {
+                terminal_writeln("server error");
+                return;
+            }
+
+            u32 body = 0;
+            for (u32 i = 0; i + 3 < len; i++) {
+                if (response[i] == '\r' && response[i+1] == '\n' && response[i+2] == '\r' && response[i+3] == '\n') {
+                    body = i + 4;
+                    break;
+                }
+            }
+
+            terminal_writeln("Available packages:");
+            terminal_write((char*)(response + body));
+            terminal_writeln("");
+            return;
+        }
+
+        if (!str_compare(args, "install")) {
+            if (!*space) {
+                terminal_writeln("usage: pkg install <server_ip> <pkg>");
+                return;
+            }
+
+            char* space2 = space;
+            while (*space2 && *space2 != ' ') space2++;
+            if (*space2) *space2++ = 0;
+
+            u32 server_ip = str_to_ip(space);
+            char* pkg = space2;
+
+            terminal_write("Installing ");
+            terminal_write(pkg);
+            terminal_writeln("...");
+
+            char base_path[256];
+            str_copy(base_path, "/packages/");
+            str_copy(base_path + str_len(base_path), pkg);
+
+            char meta_url[256];
+            str_copy(meta_url, base_path);
+            str_copy(meta_url + str_len(meta_url), "/package.json");
+
+            char meta_fs[256];
+            str_copy(meta_fs, base_path);
+            str_copy(meta_fs + str_len(meta_fs), "/package.json");
+
+            u8 meta_resp[4096];
+            u32 meta_len = http_request(server_ip, 40000, meta_url, meta_resp, sizeof(meta_resp));
+
+            if (!meta_len || meta_resp[9] != '2') {
+                terminal_writeln("failed to fetch package.json");
+                return;
+            }
+
+            u32 meta_body = 0;
+            for (u32 i = 0; i + 3 < meta_len; i++) {
+                if (meta_resp[i] == '\r' && meta_resp[i+1] == '\n' && meta_resp[i+2] == '\r' && meta_resp[i+3] == '\n') {
+                    meta_body = i + 4;
+                    break;
+                }
+            }
+
+            fs_create("/packages", 1);
+            fs_create(base_path, 1);
+            fs_write(meta_fs, meta_resp + meta_body, meta_len - meta_body);
+
+            char entry[128] = {0};
+            for (u32 i = meta_body; i < meta_len - 8; i++) {
+                if (meta_resp[i] == '"' &&
+                    meta_resp[i+1] == 'e' &&
+                    meta_resp[i+2] == 'n' &&
+                    meta_resp[i+3] == 't' &&
+                    meta_resp[i+4] == 'r' &&
+                    meta_resp[i+5] == 'y') {
+
+                    u32 j = i + 7;
+                    while (j < meta_len && meta_resp[j] != '"') j++;
+                    j++;
+
+                    u32 k = 0;
+                    while (j < meta_len && meta_resp[j] != '"' && k < sizeof(entry)-1) {
+                        entry[k++] = meta_resp[j++];
+                    }
+                    entry[k] = 0;
+                    break;
+                    }
+            }
+
+            if (!*entry) {
+                terminal_writeln("invalid package.json (no entry)");
+                return;
+            }
+
+            /* ---------- fetch source ---------- */
+
+            char src_url[256];
+            str_copy(src_url, base_path);
+            str_copy(src_url + str_len(src_url), "/");
+            str_copy(src_url + str_len(src_url), entry);
+
+            char src_fs[256];
+            str_copy(src_fs, base_path);
+            str_copy(src_fs + str_len(src_fs), "/");
+            str_copy(src_fs + str_len(src_fs), entry);
+
+            char src_dir[256];
+            str_copy(src_dir, base_path);
+            str_copy(src_dir + str_len(src_dir), "/src");
+            fs_create(src_dir, 1);
+
+            u8 src_resp[8192];
+            u32 src_len = http_request(server_ip, 40000, src_url, src_resp, sizeof(src_resp));
+
+            if (!src_len || src_resp[9] != '2') {
+                terminal_writeln("failed to fetch source");
+                return;
+            }
+
+            u32 src_body = 0;
+            for (u32 i = 0; i + 3 < src_len; i++) {
+                if (src_resp[i] == '\r' && src_resp[i+1] == '\n' &&
+                    src_resp[i+2] == '\r' && src_resp[i+3] == '\n') {
+                    src_body = i + 4;
+                    break;
+                    }
+            }
+
+            fs_write(src_fs, src_resp + src_body, src_len - src_body);
+            terminal_writeln("installed");
+            return;
+        }
+
+        terminal_writeln("usage: pkg <install|list|test> [args]");
     } else if (!str_compare(cmd, "exec")) {
         if (*args) {
             char path[256];

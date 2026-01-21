@@ -1,0 +1,9 @@
+{
+  "name": "breadfetch",
+  "version": "0.0.2",
+  "language": "uwu",
+  "entry": "src/main.uwu",
+  "build": "uwu-cc src/main.uwu -o breadfetch",
+  "install": "/usr/bin/breadfetch",
+  "type": "app"
+}
