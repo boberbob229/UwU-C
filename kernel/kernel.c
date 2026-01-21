@@ -1022,8 +1022,6 @@ void shell_execute(char* cmd) {
                 return;
             }
 
-            /* ---------- fetch source ---------- */
-
             char src_url[256];
             str_copy(src_url, base_path);
             str_copy(src_url + str_len(src_url), "/");
