@@ -12,7 +12,8 @@ nuzzle main ( ) -> chonk {
             uwu_print("Enter Value: ");
             var1: chonk = read_int();
             print_int(var1 - 6);
-        } nowu {
+        }
+        nowu {
             pwease (operator == 3) {
                 uwu_print("Enter Value: ");
                 var1: chonk = read_int();
