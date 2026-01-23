@@ -3,11 +3,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <key>contactName</key>
-    <string>Austin Developers</string>
+    <string>UwU-C Developers</string>
 
     <key>description</key>
     <string>Support for UwU-C Language</string>
 
     <key>name</key>
-    <string>uwuc</string>
+    <string>UwU-C</string>
 </plist>

@@ -35,20 +35,46 @@ void fs_init(void) {
     fs_create("/", 1);
 }
 
+int fs_find(const char* path) {
+    if (!path || !*path) {
+        return -1;
+    }
+
+    for (u32 i = 0; i < FS_MAX_FILES; i++) {
+        if (filesystem.files[i].in_use && !str_compare(filesystem.files[i].name, path)) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+
 int fs_create(const char* path, u8 is_directory) {
+    char fixed_path[256];
+    str_copy(fixed_path, path);
+
+    if (is_directory) {
+        u32 len = str_len(fixed_path);
+        if (fixed_path[len - 1] != '/') {
+            fixed_path[len] = '/';
+            fixed_path[len + 1] = 0;
+        }
+    }
+
     if (filesystem.num_files >= FS_MAX_FILES) {
         return -1;
     }
-    
+
     for (u32 i = 0; i < FS_MAX_FILES; i++) {
-        if (filesystem.files[i].in_use && !str_compare(filesystem.files[i].name, path)) {
+        if (filesystem.files[i].in_use &&
+            !str_compare(filesystem.files[i].name, fixed_path)) {
             return -2;
-        }
+            }
     }
-    
+
     for (u32 i = 0; i < FS_MAX_FILES; i++) {
         if (!filesystem.files[i].in_use) {
-            str_copy(filesystem.files[i].name, path);
+            str_copy(filesystem.files[i].name, fixed_path);
             filesystem.files[i].size = 0;
             filesystem.files[i].offset = next_data_offset;
             filesystem.files[i].is_directory = is_directory;
@@ -57,9 +83,10 @@ int fs_create(const char* path, u8 is_directory) {
             return 0;
         }
     }
-    
+
     return -3;
 }
+
 
 int fs_write(const char* path, const u8* data, u32 size) {
     if (size > FS_MAX_FILESIZE) {
@@ -147,52 +174,58 @@ int fs_delete(const char* path) {
 int fs_list(const char* path, char* buffer, u32 max_size) {
     u32 path_len = str_len(path);
     u32 pos = 0;
-    
+
     for (u32 i = 0; i < FS_MAX_FILES; i++) {
-        if (filesystem.files[i].in_use) {
-            const char* name = filesystem.files[i].name;
-            
-            u8 match = 1;
-            for (u32 j = 0; j < path_len; j++) {
-                if (name[j] != path[j]) {
-                    match = 0;
-                    break;
-                }
-            }
-            
-            if (!match) continue;
-            
-            const char* short_name = name + path_len;
-            if (*short_name == '/') short_name++;
-            
-            u8 in_subdir = 0;
-            for (u32 j = 0; short_name[j]; j++) {
-                if (short_name[j] == '/') {
-                    in_subdir = 1;
-                    break;
-                }
-            }
-            
-            if (!in_subdir && *short_name) {
-                u32 name_len = str_len(short_name);
-                if (pos + name_len + 2 > max_size) break;
-                
-                for (u32 j = 0; j < name_len; j++) {
-                    buffer[pos++] = short_name[j];
-                }
-                
-                if (filesystem.files[i].is_directory) {
-                    buffer[pos++] = '/';
-                }
-                
-                buffer[pos++] = '\n';
+        if (!filesystem.files[i].in_use)
+            continue;
+
+        const char* name = filesystem.files[i].name;
+
+        u8 match = 1;
+        for (u32 j = 0; j < path_len; j++) {
+            if (name[j] != path[j]) {
+                match = 0;
+                break;
             }
         }
+        if (!match)
+            continue;
+
+        if (str_len(name) == path_len)
+            continue;
+
+        const char* rel = name + path_len;
+
+        if (path_len > 1 && *rel == '/')
+            rel++;
+
+        u32 slash_count = 0;
+        u32 rel_len = str_len(rel);
+        for (u32 j = 0; j < rel_len; j++) {
+            if (rel[j] == '/')
+                slash_count++;
+        }
+
+        if (slash_count > 1)
+            continue;
+
+        /* reject "file/thing" */
+        if (slash_count == 1 && rel[rel_len - 1] != '/')
+            continue;
+
+        if (pos + rel_len + 2 >= max_size)
+            break;
+
+        for (u32 j = 0; j < rel_len; j++)
+            buffer[pos++] = rel[j];
+
+        buffer[pos++] = '\n';
     }
-    
+
     buffer[pos] = 0;
     return pos;
 }
+
 
 int fs_exists(const char* path) {
     for (u32 i = 0; i < FS_MAX_FILES; i++) {
@@ -210,4 +243,24 @@ u32 fs_size(const char* path) {
         }
     }
     return 0;
+}
+
+int fs_is_directory(const char* path) {
+    int idx = fs_find(path);
+    if (idx < 0) return 0;
+    return filesystem.files[idx].is_directory;
+}
+
+void fs_normalize_path(char* path) {
+    u32 w = 0;
+    for (u32 r = 0; path[r]; r++) {
+        if (r > 0 && path[r] == '/' && path[r - 1] == '/') continue;
+        path[w++] = path[r];
+    }
+    path[w] = 0;
+
+    u32 len = str_len(path);
+    if (len > 1 && path[len - 1] == '/') {
+        path[len - 1] = 0;
+    }
 }
