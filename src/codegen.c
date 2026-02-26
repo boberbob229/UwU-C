@@ -1,5 +1,5 @@
 /*
-* @file    codegen_v2.c
+* @file    codegen.c
 * @brief   Assembly code generation for the UwU-C IR
 * @author  Bober
 * @version 1.0.0
